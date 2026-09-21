@@ -1,0 +1,392 @@
+/* ============================================================
+   CardGame 暗色奇幻主题
+   深色石质背景 + 金属镶边 + 金色高光
+   ============================================================ */
+
+.root {
+    /* 注意：中文字体由 Fonts.java 在运行时探测后设置（CSS 的多字体回退在部分平台会失效导致乱码） */
+    -fx-background-color:
+        radial-gradient(center 50% 35%, radius 75%,
+            #2a2136 0%, #1a1424 45%, #0d0a14 100%);
+}
+
+/* ---------- 通用文字 ---------- */
+.title-text {
+    -fx-text-fill: #e8d5a8;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(232, 213, 168, 0.45), 12, 0.3, 0, 0);
+}
+
+.subtle-text {
+    -fx-text-fill: #9a8fb0;
+    -fx-font-size: 12px;
+}
+
+.gold-text {
+    -fx-text-fill: #f0c96b;
+    -fx-font-weight: bold;
+}
+
+.danger-text {
+    -fx-text-fill: #ff6b6b;
+    -fx-font-weight: bold;
+}
+
+/* ---------- 区域面板：石质卡片 ---------- */
+.panel {
+    -fx-background-color: linear-gradient(to bottom, rgba(58, 48, 78, 0.55), rgba(28, 22, 40, 0.75));
+    -fx-background-radius: 10;
+    -fx-border-color: linear-gradient(to bottom, #6b5a8a, #3a2f52);
+    -fx-border-radius: 10;
+    -fx-border-width: 1.5;
+    -fx-padding: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.65), 14, 0.25, 0, 5);
+}
+
+/* ---------- 战场 ---------- */
+.battlefield {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(20, 16, 30, 0.9), rgba(35, 28, 50, 0.9));
+    -fx-background-radius: 12;
+    -fx-border-color: linear-gradient(to bottom, #7a6899, #2e2643);
+    -fx-border-radius: 12;
+    -fx-border-width: 2;
+    -fx-padding: 10;
+}
+
+/* 空槽位：虚线框，暗示“可以放这里” */
+.slot-empty {
+    -fx-background-color: rgba(255, 255, 255, 0.028);
+    -fx-background-radius: 8;
+    -fx-border-color: rgba(160, 140, 200, 0.28);
+    -fx-border-radius: 8;
+    -fx-border-width: 1.5;
+    -fx-border-style: segments(6, 6) line-cap round;
+}
+
+/* ============================================================
+   卡牌（手牌）
+   ============================================================ */
+.card {
+    -fx-background-color:
+        linear-gradient(to bottom, #3d3358 0%, #251d38 55%, #191228 100%);
+    -fx-background-radius: 9;
+    -fx-border-color: linear-gradient(to bottom, #a48fd0, #5a4a7d 60%, #3a2f52);
+    -fx-border-radius: 9;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.7), 10, 0.2, 0, 4);
+    -fx-cursor: hand;
+}
+
+.card:hover {
+    -fx-border-color: linear-gradient(to bottom, #ffe9a8, #f0c96b 60%, #b8933f);
+    -fx-effect:
+        dropshadow(gaussian, rgba(240, 201, 107, 0.75), 22, 0.45, 0, 0),
+        dropshadow(gaussian, rgba(0, 0, 0, 0.75), 12, 0.2, 0, 5);
+}
+
+.card-selected {
+    -fx-border-color: linear-gradient(to bottom, #9ef0ff, #4fc1ff 60%, #2a7fb8);
+    -fx-effect: dropshadow(gaussian, rgba(79, 193, 255, 0.85), 24, 0.5, 0, 0);
+}
+
+.card-disabled {
+    -fx-opacity: 0.45;
+    -fx-cursor: default;
+}
+
+/* 卡牌内的文字 */
+.card-name {
+    -fx-text-fill: #f2e6c8;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.card-desc {
+    -fx-text-fill: #a99ec4;
+    -fx-font-size: 10px;
+}
+
+/* 费用圆（左上角） */
+.cost-circle {
+    -fx-fill: radial-gradient(center 35% 30%, radius 70%, #6fc3ff 0%, #2a6fb0 60%, #143a63 100%);
+    -fx-stroke: #bfe6ff;
+    -fx-stroke-width: 1.2;
+}
+
+.cost-text {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.85), 4, 0.5, 0, 1);
+}
+
+/* 卡图区（程序化渐变占位，无需美术资源） */
+.card-art {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-color: rgba(180, 160, 220, 0.45);
+    -fx-border-width: 1;
+}
+
+.art-minion {
+    -fx-background-color: radial-gradient(center 50% 40%, radius 75%,
+        #7a5a3a 0%, #4a3423 55%, #241a12 100%);
+}
+
+.art-spell {
+    -fx-background-color: radial-gradient(center 50% 40%, radius 75%,
+        #3a5a8a 0%, #23384f 55%, #101a24 100%);
+}
+
+.art-pet {
+    -fx-background-color: radial-gradient(center 50% 40%, radius 75%,
+        #8a7a3a 0%, #4f4523 55%, #241f10 100%);
+}
+
+/* 卡图里的“符号”文字 */
+.art-glyph {
+    -fx-text-fill: rgba(255, 245, 220, 0.92);
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.9), 6, 0.6, 0, 2);
+}
+
+/* ============================================================
+   场上随从
+   ============================================================ */
+.minion {
+    -fx-background-color:
+        linear-gradient(to bottom, #2f4a33 0%, #1e3222 60%, #14211a 100%);
+    -fx-background-radius: 999;
+    -fx-border-color: linear-gradient(to bottom, #8fe0a0, #3f7a52);
+    -fx-border-radius: 999;
+    -fx-border-width: 2.5;
+    -fx-effect:
+        dropshadow(gaussian, rgba(0, 0, 0, 0.7), 10, 0.2, 0, 4);
+    -fx-cursor: hand;
+}
+
+.minion:hover {
+    -fx-border-color: linear-gradient(to bottom, #fff3b0, #f0c96b);
+    -fx-effect:
+        dropshadow(gaussian, rgba(240, 201, 107, 0.8), 20, 0.45, 0, 0),
+        dropshadow(gaussian, rgba(0, 0, 0, 0.7), 10, 0.2, 0, 4);
+}
+
+.minion-attacker {
+    -fx-border-color: linear-gradient(to bottom, #9ef0ff, #4fc1ff);
+    -fx-effect:
+        dropshadow(gaussian, rgba(79, 193, 255, 0.9), 22, 0.5, 0, 0),
+        dropshadow(gaussian, rgba(0, 0, 0, 0.7), 10, 0.2, 0, 4);
+}
+
+.minion-target {
+    -fx-border-color: linear-gradient(to bottom, #ff9e9e, #ff4d4d);
+    -fx-effect:
+        dropshadow(gaussian, rgba(255, 77, 77, 0.9), 22, 0.5, 0, 0);
+    -fx-cursor: crosshair;
+}
+
+.minion-sick {
+    -fx-opacity: 0.72;
+    -fx-border-color: linear-gradient(to bottom, #9a9a9a, #5a5a5a);
+}
+
+.minion-name {
+    -fx-text-fill: #eaffe8;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.9), 5, 0.6, 0, 1);
+}
+
+/* 攻击 / 血量徽章 */
+.badge-attack {
+    -fx-fill: radial-gradient(center 35% 30%, radius 70%, #ffd166 0%, #c8862a 60%, #7a4d12 100%);
+    -fx-stroke: #ffe9a8;
+    -fx-stroke-width: 1;
+}
+
+.badge-health {
+    -fx-fill: radial-gradient(center 35% 30%, radius 70%, #ff8a8a 0%, #c0392b 60%, #6e1c14 100%);
+    -fx-stroke: #ffc9c9;
+    -fx-stroke-width: 1;
+}
+
+.badge-value {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.9), 4, 0.6, 0, 1);
+}
+
+.badge-health-hurt {
+    -fx-text-fill: #ffd7d7;
+}
+
+/* ============================================================
+   英雄
+   ============================================================ */
+.hero-frame {
+    -fx-background-color:
+        radial-gradient(center 45% 35%, radius 70%, #4a3a66 0%, #2a2040 65%, #140f22 100%);
+    -fx-background-radius: 999;
+    -fx-border-color: linear-gradient(to bottom, #d8c48a, #8a7340);
+    -fx-border-radius: 999;
+    -fx-border-width: 3;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.75), 14, 0.25, 0, 5);
+}
+
+.hero-frame-active {
+    -fx-border-color: linear-gradient(to bottom, #ffe9a8, #f0c96b);
+    -fx-effect:
+        dropshadow(gaussian, rgba(240, 201, 107, 0.85), 26, 0.5, 0, 0),
+        dropshadow(gaussian, rgba(0, 0, 0, 0.75), 14, 0.25, 0, 5);
+}
+
+.hero-frame-target {
+    -fx-border-color: linear-gradient(to bottom, #ff9e9e, #ff4d4d);
+    -fx-effect: dropshadow(gaussian, rgba(255, 77, 77, 0.9), 26, 0.5, 0, 0);
+    -fx-cursor: crosshair;
+}
+
+.hero-glyph {
+    -fx-text-fill: #f2e0b0;
+    -fx-font-size: 30px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.85), 8, 0.6, 0, 2);
+}
+
+/* 血条 */
+.health-bar-track {
+    -fx-background-color: rgba(0, 0, 0, 0.65);
+    -fx-background-radius: 6;
+    -fx-border-color: rgba(200, 180, 140, 0.5);
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+}
+
+.health-bar-fill {
+    -fx-background-color: linear-gradient(to bottom, #7ef08a, #2e9e4a 65%, #1d6b30);
+    -fx-background-radius: 5;
+}
+
+.health-bar-fill-hurt {
+    -fx-background-color: linear-gradient(to bottom, #ffb36b, #e07a1f 65%, #9c4d0c);
+    -fx-background-radius: 5;
+}
+
+.health-bar-fill-low {
+    -fx-background-color: linear-gradient(to bottom, #ff8a8a, #c0392b 65%, #7a1f16);
+    -fx-background-radius: 5;
+}
+
+/* ============================================================
+   按钮
+   ============================================================ */
+.btn {
+    -fx-background-color: linear-gradient(to bottom, #4a3d6b, #2a2140);
+    -fx-text-fill: #e8d5a8;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8;
+    -fx-border-color: linear-gradient(to bottom, #8a76b5, #4a3d6b);
+    -fx-border-radius: 8;
+    -fx-border-width: 1.5;
+    -fx-padding: 8 18;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 8, 0.2, 0, 3);
+}
+
+.btn:hover {
+    -fx-background-color: linear-gradient(to bottom, #5d4d85, #362a52);
+    -fx-border-color: linear-gradient(to bottom, #ffe9a8, #c8a44f);
+    -fx-effect:
+        dropshadow(gaussian, rgba(240, 201, 107, 0.55), 16, 0.4, 0, 0),
+        dropshadow(gaussian, rgba(0, 0, 0, 0.6), 8, 0.2, 0, 3);
+}
+
+.btn:disabled {
+    -fx-opacity: 0.42;
+    -fx-cursor: default;
+}
+
+/* 主行动按钮（结束回合） */
+.btn-primary {
+    -fx-background-color: linear-gradient(to bottom, #8a6a2a, #5a4318);
+    -fx-text-fill: #fff3d0;
+    -fx-border-color: linear-gradient(to bottom, #ffe9a8, #b8933f);
+}
+
+.btn-primary:hover {
+    -fx-background-color: linear-gradient(to bottom, #a8832f, #6e521d);
+    -fx-effect:
+        dropshadow(gaussian, rgba(255, 220, 130, 0.8), 20, 0.5, 0, 0),
+        dropshadow(gaussian, rgba(0, 0, 0, 0.6), 8, 0.2, 0, 3);
+}
+
+/* ============================================================
+   日志区
+   ============================================================ */
+.log-view {
+    -fx-control-inner-background: rgba(12, 9, 20, 0.82);
+    -fx-background-color: transparent;
+    -fx-text-fill: #b8aed0;
+    -fx-font-size: 11px;
+    -fx-border-color: rgba(140, 120, 180, 0.35);
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.log-view .content {
+    -fx-background-color: rgba(12, 9, 20, 0.82);
+}
+
+.log-view .scroll-bar:vertical {
+    -fx-background-color: transparent;
+}
+
+/* ============================================================
+   状态提示（回合横幅）
+   ============================================================ */
+.status-banner {
+    -fx-text-fill: #f0c96b;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(240, 201, 107, 0.7), 14, 0.4, 0, 0);
+}
+
+/* 伤害飘字 */
+.damage-float {
+    -fx-text-fill: #ff5555;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-effect:
+        dropshadow(gaussian, rgba(0, 0, 0, 0.95), 8, 0.8, 0, 2);
+}
+
+.heal-float {
+    -fx-text-fill: #66ff8a;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-effect:
+        dropshadow(gaussian, rgba(0, 0, 0, 0.95), 8, 0.8, 0, 2);
+}
+
+/* 宠物光环标签 */
+.pet-chip {
+    -fx-background-color: linear-gradient(to bottom, rgba(120, 100, 50, 0.85), rgba(70, 58, 28, 0.9));
+    -fx-text-fill: #ffe9a8;
+    -fx-font-size: 10px;
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(240, 201, 107, 0.55);
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-padding: 2 8;
+}
+
+/* 回合数 / 牌堆信息 */
+.pile-info {
+    -fx-text-fill: #8f84a8;
+    -fx-font-size: 11px;
+}

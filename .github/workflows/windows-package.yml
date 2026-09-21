@@ -1,0 +1,82 @@
+name: Windows Package
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Maven
+        shell: pwsh
+        run: |
+          curl.exe -sLO https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip
+          Expand-Archive -Path apache-maven-3.9.9-bin.zip -DestinationPath . -Force
+          "$env:GITHUB_WORKSPACE\apache-maven-3.9.9\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Build app jar
+        shell: pwsh
+        run: mvn -B "-Dmaven.repo.local=.m2repo" package "-DskipTests"
+
+      - name: Collect app + Windows JavaFX jars
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path target/pkg/input | Out-Null
+          mvn -B -q "-Dmaven.repo.local=.m2repo" dependency:copy-dependencies "-DoutputDirectory=target/pkg/input" "-DincludeScope=runtime"
+          Copy-Item target/card-game-1.0-SNAPSHOT.jar target/pkg/input/ -Force
+          Get-ChildItem target/pkg/input | Select-Object Name, Length
+
+      - name: Build minimal runtime (jlink)
+        shell: pwsh
+        run: |
+          jlink --add-modules java.base,java.desktop,java.logging,java.prefs,java.xml,java.naming,jdk.unsupported,jdk.unsupported.desktop,jdk.zipfs,jdk.charsets --strip-debug --no-man-pages --no-header-files --compress=zip-6 --module-path "$env:JAVA_HOME\jmods" --output target/minijre
+          Get-ChildItem target/minijre | Select-Object Name
+
+      - name: Build portable app image (with minimal runtime)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path target/pkg/output | Out-Null
+          jpackage --type app-image --name CardGame --app-version 1.0.0 --input target/pkg/input --main-jar card-game-1.0-SNAPSHOT.jar --main-class org.example.card.ui.Main --dest target/pkg/output --runtime-image target/minijre --java-options "--enable-native-access=ALL-UNNAMED"
+          "--- app image size ---"
+          "{0:N1} MB" -f ((Get-ChildItem -Recurse target/pkg/output/CardGame | Measure-Object -Property Length -Sum).Sum / 1MB)
+
+      - name: Zip portable app
+        shell: pwsh
+        run: Compress-Archive -Path target/pkg/output/CardGame -DestinationPath target/pkg/CardGame-portable.zip -Force
+
+      - name: Upload portable zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: CardGame-windows-portable
+          path: target/pkg/CardGame-portable.zip
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: choco install wixtoolset -y --no-progress
+
+      - name: Build .exe installer (with minimal runtime)
+        shell: pwsh
+        run: |
+          $wix = Get-ChildItem "C:\Program Files (x86)\WiX Toolset*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($wix) { "$($wix.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8 }
+          New-Item -ItemType Directory -Force -Path target/pkg/installer | Out-Null
+          jpackage --type exe --name CardGame --app-version 1.0.0 --input target/pkg/input --main-jar card-game-1.0-SNAPSHOT.jar --main-class org.example.card.ui.Main --dest target/pkg/installer --runtime-image target/minijre --win-menu --win-shortcut --win-dir-chooser --java-options "--enable-native-access=ALL-UNNAMED"
+          Get-ChildItem target/pkg/installer | Select-Object Name, @{n='MB';e={"{0:N1}" -f ($_.Length/1MB)}}
+
+      - name: Upload .exe installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: CardGame-windows-installer
+          path: target/pkg/installer/*.exe
+          if-no-files-found: warn

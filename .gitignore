@@ -1,0 +1,28 @@
+target/
+build/
+*.class
+
+### IDE ###
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+### 本地 Maven 仓库（受限环境用）###
+.m2repo/
+
+### 工具缓存 ###
+.opencode/
+
+### 构建产物：exe/zip 发布到 GitHub Releases，不进仓库 ###
+dist/
+*.exe
+*.zip
+
+### 数据文件：一律不进仓库（含业务数据）###
+*.xlsx
+*.csv
+
+### macOS ###
+.DS_Store
