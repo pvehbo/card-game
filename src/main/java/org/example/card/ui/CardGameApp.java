@@ -147,11 +147,14 @@ public class CardGameApp extends Application {
         stage.setScene(scene);
         stage.show();
 
-        // 诊断用：-Dui.screenshot=<路径> 时自动截图并退出（用于无头验证渲染效果）
+        // 诊断/宣传用：-Dui.screenshot=<路径> 时自动构造演示局面、截图并退出
         String shot = System.getProperty("ui.screenshot");
         if (shot != null) {
+            startNewGame();
+            setupDemoBoard();
+            refresh();
             javafx.animation.PauseTransition wait =
-                    new javafx.animation.PauseTransition(Duration.millis(1500));
+                    new javafx.animation.PauseTransition(Duration.millis(1600));
             wait.setOnFinished(e -> {
                 try {
                     javafx.scene.image.WritableImage img = scene.snapshot(null);
@@ -168,6 +171,54 @@ public class CardGameApp extends Application {
         }
     }
 
+    /** 构造一个“看起来在对战”的演示局面（仅用于截图/宣传图）。 */
+    private void setupDemoBoard() {
+        player.getField().clear();
+        ai.getField().clear();
+        player.getHand().clear();
+        player.getPets().clear();
+        ai.getPets().clear();
+
+        // 血量差异：你 16，AI 12
+        player.damage(4);
+        ai.damage(8);
+
+        // 你的随从（第三只带伤，展示血量变化；已解除召唤失调）
+        MinionCard dragon = new MinionCard("m1", "幼龙", "低攻快攻", 2, 1);
+        MinionCard blade = new MinionCard("m3", "烈焰剑士", "中坚输出", 3, 3);
+        MinionCard archer = new MinionCard("m6", "风语射手", "稳定输出", 3, 2);
+        archer.takeDamage(1);
+        for (MinionCard m : List.of(dragon, blade, archer)) {
+            m.setSummoningSickness(false);
+            player.getField().add(m);
+        }
+
+        // 你的宠物光环：全员 +1 攻
+        player.getPets().add(new PetCard("p1", "战鼓兽", "全员+1 攻", 1, 0));
+
+        // AI 的随从
+        MinionCard assassin = new MinionCard("m4", "暗影刺客", "先手压制", 4, 2);
+        MinionCard giant = new MinionCard("m5", "雷霆巨人", "高攻终结", 6, 6);
+        giant.takeDamage(3);
+        for (MinionCard m : List.of(assassin, giant)) {
+            m.setSummoningSickness(false);
+            ai.getField().add(m);
+        }
+        ai.getPets().add(new PetCard("p2", "石皮兽", "全员+2 血", 0, 2));
+
+        // 你的手牌
+        player.getHand().addAll(List.of(
+                new MinionCard("m2", "铁壁卫士", "高血挡刀", 1, 5),
+                new SpellCard("s1", "火球术", "打脸 3", SpellCard.Kind.DAMAGE, 3),
+                new SpellCard("s2", "治疗之触", "回 4", SpellCard.Kind.HEAL, 4),
+                new PetCard("p1", "战鼓兽", "全员+1 攻", 1, 0)));
+
+        statusLabel.setText("你的回合 · 请出牌");
+        log("你上场了随从：随从《幼龙》");
+        log("法术：火球术 对敌方英雄 -3");
+        log("选中 烈焰剑士，点击对方随从或英雄头像进行攻击");
+    }
+
     /** 新游戏：初始化双方牌堆、手牌，随机先后手。 */
     private void startNewGame() {
         engine = new GameEngine(new SimpleAi());
@@ -179,7 +230,9 @@ public class CardGameApp extends Application {
             player.getDeck().draw().ifPresent(player.getHand()::add);
             ai.getDeck().draw().ifPresent(ai.getHand()::add);
         }
-        yourTurn = RANDOM.nextBoolean();
+        // 截图模式下固定玩家先手，且不触发 AI 自动回合（否则会覆盖演示局面）
+        boolean screenshotMode = System.getProperty("ui.screenshot") != null;
+        yourTurn = screenshotMode || RANDOM.nextBoolean();
         selectedAttacker = null;
         // 新对局必须重建英雄控件，否则它们还引用旧的对局状态
         aiHero = null;
@@ -189,7 +242,9 @@ public class CardGameApp extends Application {
         log("开局：你与 AI 各 3 张手牌，20 生命，无费用；每回合各限 1 随从 + 1 法术 + 1 宠物。");
         endTurnButton.setDisable(false);
         if (yourTurn) {
-            engine.startPlayerTurn(player, ai, this::log);
+            if (!screenshotMode) {
+                engine.startPlayerTurn(player, ai, this::log);
+            }
             statusLabel.setText("你的回合 · 请出牌");
         } else {
             statusLabel.setText("AI 先手…");
@@ -443,6 +498,10 @@ public class CardGameApp extends Application {
 
     /** 中央横幅：回合切换 / 胜负。 */
     private void showBanner(String text, String color) {
+        // 截图模式下不弹横幅，避免遮挡画面
+        if (System.getProperty("ui.screenshot") != null) {
+            return;
+        }
         Label banner = new Label(text);
         banner.setStyle("-fx-text-fill: " + color
                 + "; -fx-font-size: 46px; -fx-font-weight: bold;"

@@ -3,6 +3,7 @@ package org.example.card.ui;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Circle;
 import org.example.card.engine.GameEngine;
@@ -44,9 +45,19 @@ public class MinionView extends StackPane {
         name.getStyleClass().add("minion-name");
         name.setMouseTransparent(true);
         StackPane.setAlignment(name, Pos.BOTTOM_CENTER);
-        StackPane.setMargin(name, new Insets(0, 0, -2, 0));
+        StackPane.setMargin(name, new Insets(0, 0, -1, 0));
 
-        getChildren().addAll(inner, name);
+        // 名字带深色底衬，避免压在圆形边框上糊成一团
+        StackPane namePlate = new StackPane(name);
+        namePlate.setMouseTransparent(true);
+        namePlate.setMaxWidth(Region.USE_PREF_SIZE);
+        namePlate.setMaxHeight(Region.USE_PREF_SIZE);
+        namePlate.setStyle("-fx-background-color: rgba(10, 8, 16, 0.82);"
+                + " -fx-background-radius: 8; -fx-padding: 0 6 0 6;");
+        StackPane.setAlignment(namePlate, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(namePlate, new Insets(0, 0, -6, 0));
+
+        getChildren().addAll(inner, namePlate);
 
         // 有立绘用立绘（复用卡图资源），否则用类型符号
         var art = Assets.cardArt(minion);
@@ -66,10 +77,10 @@ public class MinionView extends StackPane {
 
         // 攻击力（左下）
         getChildren().add(badge(String.valueOf(GameEngine.effectiveAttack(owner, minion)),
-                "badge-attack", Pos.BOTTOM_LEFT, -4, -4));
+                "badge-attack", Pos.BOTTOM_LEFT, 1, 8));
         // 当前血量（右下）
         int hp = GameEngine.currentHealth(owner, minion);
-        getChildren().add(badge(String.valueOf(hp), "badge-health", Pos.BOTTOM_RIGHT, -4, -4));
+        getChildren().add(badge(String.valueOf(hp), "badge-health", Pos.BOTTOM_RIGHT, 1, 8));
 
         if (minion.isSummoningSickness()) {
             getStyleClass().add("minion-sick");
