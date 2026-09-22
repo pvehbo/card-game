@@ -3,11 +3,16 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch: {}
 
 jobs:
   build-windows:
     runs-on: windows-latest
+    # GITHUB_TOKEN 默认是只读，发布 Release 必须显式提权
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,6 +29,14 @@ jobs:
           curl.exe -sLO https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip
           Expand-Archive -Path apache-maven-3.9.9-bin.zip -DestinationPath . -Force
           "$env:GITHUB_WORKSPACE\apache-maven-3.9.9\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      # 版本号跟着 tag 走：推送 v1.0.1 就产出 CardGame-1.0.1-windows-x64.exe
+      - name: Resolve version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') { $v = ${env:GITHUB_REF_NAME}.Substring(1) } else { $v = '1.0.0' }
+          "APP_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "building version $v (ref=$env:GITHUB_REF)"
 
       - name: Build app jar
         shell: pwsh
@@ -47,7 +60,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path target/pkg/output | Out-Null
-          jpackage --type app-image --name CardGame --app-version 1.0.0 --input target/pkg/input --main-jar card-game-1.0-SNAPSHOT.jar --main-class org.example.card.ui.Main --dest target/pkg/output --runtime-image target/minijre --java-options "--enable-native-access=ALL-UNNAMED"
+          jpackage --type app-image --name CardGame --app-version $env:APP_VERSION --input target/pkg/input --main-jar card-game-1.0-SNAPSHOT.jar --main-class org.example.card.ui.Main --dest target/pkg/output --runtime-image target/minijre --java-options "--enable-native-access=ALL-UNNAMED"
           "--- app image size ---"
           "{0:N1} MB" -f ((Get-ChildItem -Recurse target/pkg/output/CardGame | Measure-Object -Property Length -Sum).Sum / 1MB)
 
@@ -71,7 +84,10 @@ jobs:
           $wix = Get-ChildItem "C:\Program Files (x86)\WiX Toolset*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($wix) { "$($wix.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8 }
           New-Item -ItemType Directory -Force -Path target/pkg/installer | Out-Null
-          jpackage --type exe --name CardGame --app-version 1.0.0 --input target/pkg/input --main-jar card-game-1.0-SNAPSHOT.jar --main-class org.example.card.ui.Main --dest target/pkg/installer --runtime-image target/minijre --win-menu --win-shortcut --win-dir-chooser --java-options "--enable-native-access=ALL-UNNAMED"
+          jpackage --type exe --name CardGame --app-version $env:APP_VERSION --input target/pkg/input --main-jar card-game-1.0-SNAPSHOT.jar --main-class org.example.card.ui.Main --dest target/pkg/installer --runtime-image target/minijre --win-menu --win-shortcut --win-dir-chooser --java-options "--enable-native-access=ALL-UNNAMED"
+          # 统一成 README 里约定的下载文件名：CardGame-<版本>-windows-x64.exe
+          # 变量写成 ${env:APP_VERSION}，显式界定变量名，避免 ".exe" 被卷进变量名解析
+          Rename-Item "target/pkg/installer/CardGame-${env:APP_VERSION}.exe" "CardGame-${env:APP_VERSION}-windows-x64.exe"
           Get-ChildItem target/pkg/installer | Select-Object Name, @{n='MB';e={"{0:N1}" -f ($_.Length/1MB)}}
 
       - name: Upload .exe installer
@@ -80,3 +96,13 @@ jobs:
           name: CardGame-windows-installer
           path: target/pkg/installer/*.exe
           if-no-files-found: warn
+
+      # 只有推 tag（v*）才发 Release；普通推 main 只出 artifact。
+      # 用 runner 自带的 gh CLI 而不是第三方 action，少一个供应链依赖。
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME --title "CardGame $env:GITHUB_REF_NAME" --generate-notes "target/pkg/installer/CardGame-${env:APP_VERSION}-windows-x64.exe" "target/pkg/CardGame-portable.zip"
