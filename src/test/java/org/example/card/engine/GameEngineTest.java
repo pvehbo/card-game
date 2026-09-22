@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 炉石式 v1 单测：出牌次数规则 / 宠物光环 / 战斗直击。 */
@@ -75,5 +76,56 @@ class GameEngineTest {
         assertTrue(foe.getField().isEmpty());
         assertEquals(1, self.getField().size());
         assertEquals(PlayerState.START_LIFE, foe.getLifePoints());
+    }
+
+    /**
+     * 随从互撞时，伤害事件必须带上「受伤的随从」。
+     * 界面靠 defender 把伤害飘字/粒子锚在随从身上，否则互撞的伤害会显示在英雄头像上。
+     */
+    @Test
+    void minionDamageEventsCarryTheMinionVictim() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard attacker = minion("攻", 3, 3);
+        attacker.setSummoningSickness(false);
+        self.getField().add(attacker);
+        MinionCard defender = minion("守", 2, 2);
+        foe.getField().add(defender);
+
+        List<org.example.card.event.GameEvent> damages = new ArrayList<>();
+        engine.eventBus().on(org.example.card.event.GameEvent.Type.DAMAGE, damages::add);
+
+        engine.playTurn(self, foe, new ArrayList<String>()::add);
+
+        assertEquals(2, damages.size(), "互撞双方各受一次伤害");
+        var toDefender = damages.stream().filter(d -> d.defender() == defender).findFirst().orElseThrow();
+        assertEquals(foe, toDefender.target(), "随从受伤事件的 target 是它所属的玩家");
+        assertEquals(3, toDefender.amount());
+
+        var toAttacker = damages.stream().filter(d -> d.defender() == attacker).findFirst().orElseThrow();
+        assertEquals(self, toAttacker.target());
+        assertEquals(2, toAttacker.amount());
+    }
+
+    /** 英雄挨打的伤害事件不带随从，界面据此走震屏。 */
+    @Test
+    void heroDamageEventHasNoMinionVictim() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard attacker = minion("攻", 4, 4);
+        attacker.setSummoningSickness(false);
+        self.getField().add(attacker);
+
+        List<org.example.card.event.GameEvent> damages = new ArrayList<>();
+        engine.eventBus().on(org.example.card.event.GameEvent.Type.DAMAGE, damages::add);
+
+        engine.attack(self, foe, attacker, null, new ArrayList<String>()::add);
+
+        assertEquals(1, damages.size());
+        assertEquals(foe, damages.get(0).target());
+        assertNull(damages.get(0).defender());
+        assertEquals(4, damages.get(0).amount());
     }
 }

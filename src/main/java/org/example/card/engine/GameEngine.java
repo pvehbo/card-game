@@ -18,7 +18,8 @@ import java.util.function.Consumer;
  * 回合引擎（炉石式 v1，无费规则）。
  *
  * 两种驱动方式：
- * - AI 自动回合：playTurn()，AI 决策出牌与攻击；
+ * - AI 自动回合：playTurn() 一次跑完；界面想逐动作演出时改为
+ *   beginAiTurn() → aiSummon()/aiSpell()/aiPet() → aiStrike() → endAiTurn()；
  * - 玩家手动回合：startPlayerTurn() 开局，playMinion()/playSpell()/playPet()/attack()
  *   逐操作执行，endPlayerTurn() 收尾。
  *
@@ -67,70 +68,142 @@ public class GameEngine {
 
     // ============ AI 自动回合 ============
 
-    /** AI 打完整的一回合（抽卡→出牌→战斗→结束）。 */
+    /**
+     * AI 打完整的一回合（抽卡→出牌→战斗→结束）。
+     * 内部由下面这些可单步调用的方法组合而成，界面想「一个动作一个动作地演」时
+     * 可以跳过本方法，直接按 beginAiTurn → aiSummon/aiSpell/aiPet → aiStrike → endAiTurn 驱动。
+     */
     public void playTurn(PlayerState self, PlayerState foe, Consumer<String> log) {
+        beginAiTurn(self, log);
+        aiSummon(self, log);
+        aiSpell(self, foe, log);
+        aiPet(self, log);
+        for (MinionCard attacker : aiReadyAttackers(self)) {
+            if (foe.isDefeated()) {
+                return;
+            }
+            aiStrike(self, foe, attacker, log);
+        }
+        endAiTurn(self, foe, log);
+    }
+
+    /** AI 回合起手：回合数 +1、重置出牌次数、发布 TURN_START、抽 1 张。 */
+    public void beginAiTurn(PlayerState self, Consumer<String> log) {
         turn++;
         String msg = "—— 第 " + turn + " 回合：" + self.getName() + "（AI）——";
         log.accept(msg);
         self.resetTurnFlags();
         eventBus.publish(GameEvent.turn(GameEvent.Type.TURN_START, self, msg));
-
         drawPhase(self, log);
-        aiMainPhase(self, foe, log);
-        aiBattlePhase(self, foe, log);
+    }
+
+    /** AI 回合收尾：解除召唤失调、发布 TURN_END。 */
+    public void endAiTurn(PlayerState self, PlayerState foe, Consumer<String> log) {
         endPhase(self, foe, log);
         String endMsg = "回合结束：" + self + " | " + foe;
         log.accept(endMsg);
         eventBus.publish(GameEvent.turn(GameEvent.Type.TURN_END, self, endMsg));
     }
 
-    private void aiMainPhase(PlayerState self, PlayerState foe, Consumer<String> log) {
-        // 随从
-        if (self.getField().size() < PlayerState.MAX_FIELD) {
-            Optional<MinionCard> summon = ai.chooseMinion(self.getHand());
-            summon.ifPresent(minion -> {
-                self.getHand().remove(minion);
-                self.getField().add(minion);
-                self.setMinionPlayed(true);
-                String msg = "上场随从：" + minion;
-                log.accept(msg);
-                eventBus.publish(GameEvent.summon(self, minion, msg));
-            });
-        } else {
-            log.accept("场上已满 7 格，本回合【AI】不上随从");
+    /** AI 上场 1 张随从。返回是否真的上了场。 */
+    public boolean aiSummon(PlayerState self, Consumer<String> log) {
+        if (self.isMinionPlayed()) {
+            return false;
         }
-        // 法术
-        Optional<SpellCard> spell = ai.chooseSpell(self.getHand(), self, foe);
-        spell.ifPresent(card -> {
-            self.getHand().remove(card);
-            self.setSpellPlayed(true);
-            resolveSpell(card, self, foe, log);
-            self.getGraveyard().add(card);
-        });
-        // 宠物
-        Optional<PetCard> pet = ai.choosePet(self.getHand());
-        pet.ifPresent(card -> {
-            self.getHand().remove(card);
-            self.getPets().add(card);
-            self.setPetPlayed(true);
-            String msg = "召唤宠物：" + card + "（常驻光环）";
-            log.accept(msg);
-            eventBus.publish(GameEvent.pet(self, card, msg));
-        });
+        if (self.getField().size() >= PlayerState.MAX_FIELD) {
+            log.accept("场上已满 7 格，本回合【AI】不上随从");
+            return false;
+        }
+        Optional<MinionCard> summon = ai.chooseMinion(self.getHand());
+        if (summon.isEmpty()) {
+            return false;
+        }
+        MinionCard minion = summon.get();
+        self.getHand().remove(minion);
+        self.getField().add(minion);
+        self.setMinionPlayed(true);
+        String msg = "上场随从：" + minion;
+        log.accept(msg);
+        eventBus.publish(GameEvent.summon(self, minion, msg));
+        return true;
     }
 
-    private void aiBattlePhase(PlayerState self, PlayerState foe, Consumer<String> log) {
-        List<MinionCard> attackers = new ArrayList<>(self.getField());
-        for (MinionCard attacker : attackers) {
-            if (!self.getField().contains(attacker) || attacker.isSummoningSickness()) {
-                continue;
-            }
-            Optional<MinionCard> target = ai.chooseAttackTarget(self, foe);
-            performAttack(self, foe, attacker, target.orElse(null), log);
-            if (foe.isDefeated()) {
-                return;
+    /** AI 打出 1 张法术。返回是否真的打出。 */
+    public boolean aiSpell(PlayerState self, PlayerState foe, Consumer<String> log) {
+        if (!canPlaySpell(self)) {
+            return false;
+        }
+        Optional<SpellCard> spell = ai.chooseSpell(self.getHand(), self, foe);
+        if (spell.isEmpty()) {
+            return false;
+        }
+        SpellCard card = spell.get();
+        self.getHand().remove(card);
+        self.setSpellPlayed(true);
+        resolveSpell(card, self, foe, log);
+        self.getGraveyard().add(card);
+        return true;
+    }
+
+    /** AI 召唤 1 只宠物（常驻光环）。返回是否真的召唤。 */
+    public boolean aiPet(PlayerState self, Consumer<String> log) {
+        if (!canPlayPet(self)) {
+            return false;
+        }
+        Optional<PetCard> pet = ai.choosePet(self.getHand());
+        if (pet.isEmpty()) {
+            return false;
+        }
+        PetCard card = pet.get();
+        self.getHand().remove(card);
+        self.getPets().add(card);
+        self.setPetPlayed(true);
+        String msg = "召唤宠物：" + card + "（常驻光环）";
+        log.accept(msg);
+        eventBus.publish(GameEvent.pet(self, card, msg));
+        return true;
+    }
+
+    /**
+     * 本回合可以出手的 AI 随从快照（排除召唤失调与本回合已出手过的）。
+     * 之所以返回快照，是因为界面要一个动作一个动作地演，中途随从可能阵亡。
+     */
+    public List<MinionCard> aiReadyAttackers(PlayerState self) {
+        List<MinionCard> ready = new ArrayList<>();
+        for (MinionCard m : self.getField()) {
+            if (!m.isSummoningSickness() && !m.isAttackedThisTurn()) {
+                ready.add(m);
             }
         }
+        return ready;
+    }
+
+    /** AI 让指定随从出手一次（自行选择目标）。返回是否真的打出了这一击。 */
+    public boolean aiStrike(PlayerState self, PlayerState foe, MinionCard attacker, Consumer<String> log) {
+        return aiStrike(self, foe, attacker, chooseAiTarget(self, foe).orElse(null), log);
+    }
+
+    /**
+     * 指定目标的出手。
+     * 界面先问 {@link #chooseAiTarget} 拿到目标、把突刺动画演给玩家看，再调用本方法结算。
+     */
+    public boolean aiStrike(PlayerState self, PlayerState foe, MinionCard attacker,
+                            MinionCard target, Consumer<String> log) {
+        if (!self.getField().contains(attacker) || attacker.isSummoningSickness()
+                || attacker.isAttackedThisTurn()) {
+            return false;
+        }
+        if (target != null && !foe.getField().contains(target)) {
+            return false;
+        }
+        performAttack(self, foe, attacker, target, log);
+        attacker.setAttackedThisTurn(true);
+        return true;
+    }
+
+    /** AI 这次会打谁：空场（Optional.empty）表示打脸。 */
+    public Optional<MinionCard> chooseAiTarget(PlayerState self, PlayerState foe) {
+        return ai.chooseAttackTarget(self, foe);
     }
 
     // ============ 玩家手动回合 ============
@@ -215,11 +288,16 @@ public class GameEngine {
             log.accept(attacker.getName() + " 召唤失调，本回合还不能攻击");
             return false;
         }
+        if (attacker.isAttackedThisTurn()) {
+            log.accept(attacker.getName() + " 本回合已经攻击过了");
+            return false;
+        }
         if (target != null && !foe.getField().contains(target)) {
             log.accept("攻击目标已不在场上");
             return false;
         }
         performAttack(self, foe, attacker, target, log);
+        attacker.setAttackedThisTurn(true);
         return true;
     }
 
@@ -304,8 +382,9 @@ public class GameEngine {
                     + target.getName() + "(" + defAtk + ") 互撞";
             log.accept(msg);
             eventBus.publish(GameEvent.attack(self, foe, attacker, target, atk, msg));
-            eventBus.publish(GameEvent.damage(foe, atk, msg));
-            eventBus.publish(GameEvent.damage(self, defAtk, msg));
+            // 随从受伤：带上受害者随从，界面才能把飘字/粒子锚在随从身上
+            eventBus.publish(GameEvent.damage(foe, target, atk, msg));
+            eventBus.publish(GameEvent.damage(self, attacker, defAtk, msg));
             removeDead(foe, target, log);
             if (currentHealth(self, attacker) <= 0) {
                 removeDead(self, attacker, log);
@@ -327,9 +406,11 @@ public class GameEngine {
         }
     }
 
+    /** 己方回合结束：解除召唤失调，并清掉「本回合已攻击」标记（下回合才能再出手）。 */
     private void endPhase(PlayerState self, PlayerState foe, Consumer<String> log) {
         for (MinionCard minion : self.getField()) {
             minion.setSummoningSickness(false);
+            minion.setAttackedThisTurn(false);
         }
     }
 }

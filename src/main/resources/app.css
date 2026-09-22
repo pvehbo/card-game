@@ -194,6 +194,19 @@
     -fx-border-color: linear-gradient(to bottom, #9a9a9a, #5a5a5a);
 }
 
+/* 本回合已经攻击过的随从：压暗，但仍然可以当靶子 */
+.minion-spent {
+    -fx-opacity: 0.62;
+    -fx-border-color: linear-gradient(to bottom, #8a8a8a, #4a4a4a);
+}
+
+.minion-spent-text {
+    -fx-text-fill: #d8d2e8;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.9), 5, 0.6, 0, 1);
+}
+
 .minion-name {
     -fx-text-fill: #eaffe8;
     -fx-font-size: 11px;

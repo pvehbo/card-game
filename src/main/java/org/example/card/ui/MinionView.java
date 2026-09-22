@@ -90,6 +90,15 @@ public class MinionView extends StackPane {
             StackPane.setAlignment(sick, Pos.TOP_CENTER);
             StackPane.setMargin(sick, new Insets(2, 0, 0, 0));
             getChildren().add(sick);
+        } else if (minion.isAttackedThisTurn()) {
+            // 本回合已经出过手：压暗，提示"这只已经动过了"
+            getStyleClass().add("minion-spent");
+            Label spent = new Label("已动");
+            spent.getStyleClass().add("minion-spent-text");
+            spent.setMouseTransparent(true);
+            StackPane.setAlignment(spent, Pos.TOP_CENTER);
+            StackPane.setMargin(spent, new Insets(2, 0, 0, 0));
+            getChildren().add(spent);
         }
     }
 

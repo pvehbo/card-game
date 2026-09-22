@@ -69,8 +69,17 @@ public record GameEvent(
         return new GameEvent(Type.ATTACK, attackerSide, defenderSide, null, attacker, defender, amount, message);
     }
 
+    /** 英雄受伤：target = 受伤方，defender = null。 */
     public static GameEvent damage(PlayerState victim, int amount, String message) {
         return new GameEvent(Type.DAMAGE, null, victim, null, null, null, amount, message);
+    }
+
+    /**
+     * 随从受伤：target = 随从所属玩家（用于判断是哪一侧），defender = 受伤的随从。
+     * UI 据此把飘字/粒子锚定在随从身上，而不是英雄头像上。
+     */
+    public static GameEvent damage(PlayerState owner, MinionCard victim, int amount, String message) {
+        return new GameEvent(Type.DAMAGE, null, owner, null, null, victim, amount, message);
     }
 
     public static GameEvent death(PlayerState owner, MinionCard minion, String message) {

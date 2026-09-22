@@ -2,9 +2,11 @@ package org.example.card.ui;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
 import javafx.animation.ParallelTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.SequentialTransition;
+import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -15,13 +17,15 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
+import javafx.scene.image.ImageView;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.example.card.ai.SimpleAi;
@@ -33,10 +37,18 @@ import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
 import org.example.card.model.SpellCard;
+import org.example.card.ui.fx.Fx;
+import org.example.card.ui.fx.ParticleLayer;
+import org.example.card.ui.fx.Sfx;
+import org.example.card.ui.fx.SoundEngine;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * 炉石式卡牌游戏（暗色奇幻风）玩家 vs AI。
@@ -63,6 +75,29 @@ public class CardGameApp extends Application {
     private HeroView playerHero;
     private Button endTurnButton;
     private final Label pileLabel = new Label();
+    private ParticleLayer particleLayer;
+    private Pane fxLayer;
+    private Button soundButton;
+    /** 胜负只播报一次（引擎事件与界面自检都会触发）。 */
+    private boolean announcedOver;
+    /** 本回合新抽到的牌：等控件建好后补一段"抽牌入场"动画。 */
+    private final Set<Card> pendingDrawAnim = new HashSet<>();
+    /** AI 回合的演出步骤队列（每步之间留间隔，避免音效/动效挤在一起）。 */
+    private final Deque<Runnable> aiSteps = new ArrayDeque<>();
+    /** 每步之间的停顿：让玩家看清 AI 做了什么。 */
+    private static final Duration AI_STEP_GAP = Duration.millis(420);
+    /** 自动对局（冒烟测试）每步间隔。 */
+    private static final Duration AUTOPLAY_GAP = Duration.millis(650);
+    /** 自动对局的步数硬上限，防止逻辑异常导致死循环。 */
+    private static final int AUTOPLAY_STEP_CAP = 400;
+    private int autoplayTurnsLeft;
+    private int autoplaySteps;
+    /**
+     * 对局代数：每开一局 +1。
+     * AI 回合是「后台线程睡一会儿 → 回到界面线程执行」，如果玩家在 AI 思考期间点「开始游戏」，
+     * 那个还没执行的回调必须丢掉，否则新对局会被硬塞一个多余的 AI 回合。
+     */
+    private int gameGeneration;
 
     @Override
     public void start(Stage stage) {
@@ -79,6 +114,16 @@ public class CardGameApp extends Application {
         endTurnButton.getStyleClass().addAll("btn", "btn-primary");
         endTurnButton.setDisable(true);
         endTurnButton.setOnAction(e -> endYourTurn());
+
+        soundButton = new Button(SoundEngine.isEnabled() ? "音效：开" : "音效：关");
+        soundButton.getStyleClass().add("btn");
+        soundButton.setOnAction(e -> {
+            SoundEngine.setEnabled(!SoundEngine.isEnabled());
+            soundButton.setText(SoundEngine.isEnabled() ? "音效：开" : "音效：关");
+            if (SoundEngine.isEnabled()) {
+                SoundEngine.play(Sfx.TURN);
+            }
+        });
 
         statusLabel.getStyleClass().add("status-banner");
         pileLabel.getStyleClass().add("pile-info");
@@ -103,7 +148,7 @@ public class CardGameApp extends Application {
         handBox.setMinHeight(CardView.HEIGHT + 16);
         handZone.getChildren().add(handBox);
 
-        HBox controls = new HBox(12, startButton, endTurnButton, statusLabel, pileLabel);
+        HBox controls = new HBox(12, startButton, endTurnButton, soundButton, statusLabel, pileLabel);
         controls.setAlignment(Pos.CENTER_LEFT);
         controls.setPadding(new Insets(6, 4, 0, 4));
 
@@ -137,6 +182,18 @@ public class CardGameApp extends Application {
         });
         sceneRoot.getChildren().add(root);
 
+        // 粒子层：覆盖在最上方，鼠标穿透
+        particleLayer = new ParticleLayer();
+        particleLayer.widthProperty().bind(sceneRoot.widthProperty());
+        particleLayer.heightProperty().bind(sceneRoot.heightProperty());
+        sceneRoot.getChildren().add(particleLayer);
+
+        // 特效覆盖层：承载飞行动画（出牌飞入等）
+        fxLayer = new Pane();
+        fxLayer.setMouseTransparent(true);
+        fxLayer.setPickOnBounds(false);
+        sceneRoot.getChildren().add(fxLayer);
+
         Scene scene = new Scene(sceneRoot, 1000, 760);
         var css = getClass().getResource("/app.css");
         if (css != null) {
@@ -147,27 +204,39 @@ public class CardGameApp extends Application {
         stage.setScene(scene);
         stage.show();
 
+        // 启动粒子系统 + 预合成音效（失败自动降级，不影响游戏）
+        particleLayer.start();
+        SoundEngine.init();
+
         // 诊断/宣传用：-Dui.screenshot=<路径> 时自动构造演示局面、截图并退出
+        // 若同时给了 -Dui.autoplay=N，则改由自动对局在打满 N 回合后再截图
         String shot = System.getProperty("ui.screenshot");
-        if (shot != null) {
+        if (shot != null && System.getProperty("ui.autoplay") == null) {
             startNewGame();
             setupDemoBoard();
             refresh();
             javafx.animation.PauseTransition wait =
                     new javafx.animation.PauseTransition(Duration.millis(1600));
             wait.setOnFinished(e -> {
-                try {
-                    javafx.scene.image.WritableImage img = scene.snapshot(null);
-                    javax.imageio.ImageIO.write(
-                            javafx.embed.swing.SwingFXUtils.fromFXImage(img, null),
-                            "png", new java.io.File(shot));
-                    System.out.println("SCREENSHOT_SAVED=" + shot);
-                } catch (Exception ex) {
-                    System.out.println("SCREENSHOT_FAILED=" + ex);
-                }
+                saveScreenshot(scene, shot);
                 Platform.exit();
             });
             wait.play();
+        }
+
+        // 诊断冒烟测试：-Dui.autoplay=<回合数> 让程序自己跟 AI 打完若干回合
+        startAutoplayIfRequested(scene);
+    }
+
+    /** 把当前场景存成 PNG（诊断用）。 */
+    private static void saveScreenshot(Scene scene, String path) {
+        try {
+            WritableImage img = scene.snapshot(null);
+            javax.imageio.ImageIO.write(javafx.embed.swing.SwingFXUtils.fromFXImage(img, null),
+                    "png", new java.io.File(path));
+            System.out.println("SCREENSHOT_SAVED=" + path);
+        } catch (Exception ex) {
+            System.out.println("SCREENSHOT_FAILED=" + ex);
         }
     }
 
@@ -221,6 +290,7 @@ public class CardGameApp extends Application {
 
     /** 新游戏：初始化双方牌堆、手牌，随机先后手。 */
     private void startNewGame() {
+        gameGeneration++;
         engine = new GameEngine(new SimpleAi());
         player = new PlayerState("你", new Deck(demoDeck()));
         ai = new PlayerState("AI", new Deck(demoDeck()));
@@ -234,6 +304,9 @@ public class CardGameApp extends Application {
         boolean screenshotMode = System.getProperty("ui.screenshot") != null;
         yourTurn = screenshotMode || RANDOM.nextBoolean();
         selectedAttacker = null;
+        announcedOver = false;
+        pendingDrawAnim.clear();
+        aiSteps.clear();
         // 新对局必须重建英雄控件，否则它们还引用旧的对局状态
         aiHero = null;
         playerHero = null;
@@ -253,29 +326,125 @@ public class CardGameApp extends Application {
         refresh();
     }
 
-    /** 订阅引擎事件：伤害飘字、胜负横幅、模式化提示。 */
+    /** 订阅引擎事件：伤害飘字、粒子、音效、胜负横幅。 */
     private void subscribeEvents() {
         var bus = engine.eventBus();
-        // 伤害：在受击方（英雄或随从）上方飘数字
-        bus.on(GameEvent.Type.DAMAGE, e -> {
-            Node anchor = null;
-            if (e.target() == ai) {
-                anchor = aiHero == null ? null : aiHero.getPortrait();
-            } else if (e.target() == player) {
-                anchor = playerHero == null ? null : playerHero.getPortrait();
-            } else if (e.defender() != null) {
-                anchor = findMinionNode(e.defender());
+
+        // 抽牌：音效；玩家抽到的牌等控件建好后补入场动画
+        bus.on(GameEvent.Type.DRAW, e -> {
+            SoundEngine.play(Sfx.DRAW);
+            if (e.actor() == player && e.card() != null) {
+                pendingDrawAnim.add(e.card());
             }
-            floatDamage(anchor, "-" + e.amount(), false);
         });
-        // 回合开始：横幅提示
+
+        // 手牌满，烧牌
+        bus.on(GameEvent.Type.BURN, e -> SoundEngine.play(Sfx.DEATH));
+
+        // 上场：音效 + 落地上场粒子 / 翻面动画
+        // 随从控件要等 refresh() 之后才存在，所以表现部分推迟一帧再做
+        bus.on(GameEvent.Type.SUMMON, e -> {
+            SoundEngine.play(Sfx.SUMMON);
+            if (e.card() instanceof MinionCard m) {
+                Platform.runLater(() -> summonFeedback(m));
+            }
+        });
+
+        // 法术：音效（伤害类还会额外收到 DAMAGE 事件；治疗类飘绿字）
+        bus.on(GameEvent.Type.SPELL, e -> {
+            SoundEngine.play(Sfx.SPELL);
+            if (e.card() instanceof SpellCard s && s.getKind() == SpellCard.Kind.HEAL && e.actor() == player) {
+                floatDamage(heroPortrait(player), "+" + e.amount(), true);
+            }
+        });
+
+        // 宠物：音效 + 金色粒子（锚在召唤方英雄身上）
+        bus.on(GameEvent.Type.PET, e -> {
+            SoundEngine.play(Sfx.PET);
+            Node portrait = heroPortrait(e.actor());
+            if (portrait != null && particleLayer != null) {
+                var b = portrait.localToScene(portrait.getBoundsInLocal());
+                particleLayer.burst(b.getMinX() + b.getWidth() / 2, b.getMinY() + b.getHeight() / 2,
+                        Color.web("#f0c96b"), 18);
+            }
+        });
+
+        // 伤害：飘字 + 受击闪光 + 火花 + 音效 + 屏幕震动
+        bus.on(GameEvent.Type.DAMAGE, e -> {
+            // 随从优先：互撞的伤害事件带着具体随从，飘字必须锚在随从身上而不是英雄头像上
+            Node anchor = e.defender() != null ? findMinionNode(e.defender()) : heroPortrait(e.target());
+            floatDamage(anchor, "-" + e.amount(), false);
+            Fx.hitFlash(anchor);
+            SoundEngine.play(Sfx.DAMAGE);
+
+            if (anchor != null && particleLayer != null) {
+                var b = anchor.localToScene(anchor.getBoundsInLocal());
+                particleLayer.burst(b.getMinX() + b.getWidth() / 2, b.getMinY() + b.getHeight() / 2,
+                        Color.web("#ff8855"), 22);
+            }
+            // 英雄挨打才震屏（随从互撞的小抖动交给攻击动画）
+            if (e.defender() == null) {
+                Fx.shake(sceneRootNode(), e.amount() >= 4 ? 6.0 : 3.0);
+            }
+        });
+
+        // 阵亡：消散粒子 + 音效
+        bus.on(GameEvent.Type.DEATH, e -> {
+            SoundEngine.play(Sfx.DEATH);
+            Node node = findMinionNode(e.card() instanceof MinionCard m ? m : null);
+            if (node != null && particleLayer != null) {
+                var b = node.localToScene(node.getBoundsInLocal());
+                particleLayer.dissipate(b.getMinX() + b.getWidth() / 2, b.getMinY() + b.getHeight() / 2,
+                        Color.web("#9a7bff"), 26);
+            }
+        });
+
+        // 回合开始：横幅 + 音效
         bus.on(GameEvent.Type.TURN_START, e -> {
+            SoundEngine.play(Sfx.TURN);
             if (e.actor() == player) {
                 showBanner("你 的 回 合", "#f0c96b");
             } else if (e.actor() == ai) {
                 showBanner("A I 回 合", "#c98b6b");
             }
         });
+
+        // 胜负：e.actor() 是胜者
+        bus.on(GameEvent.Type.GAME_OVER, e -> announceGameOver(e.actor() == player));
+    }
+
+    /** 新随从上场的表现：翻面入场 + 一圈绿色火花（控件已建好后再调用）。 */
+    private void summonFeedback(MinionCard minion) {
+        Node node = findMinionNode(minion);
+        if (node == null || node.getScene() == null) {
+            return;
+        }
+        Fx.flipIn(node);
+        var b = node.localToScene(node.getBoundsInLocal());
+        if (particleLayer != null && b.getWidth() > 0 && b.getHeight() > 0) {
+            particleLayer.burst(b.getMinX() + b.getWidth() / 2, b.getMinY() + b.getHeight() / 2,
+                    Color.web("#8ce6a8"), 14);
+        }
+    }
+
+    /** 取得某一方英雄的头像控件（null 安全）。 */
+    private Node heroPortrait(PlayerState side) {
+        if (side == null) {
+            return null;
+        }
+        if (side == player) {
+            return playerHero == null ? null : playerHero.getPortrait();
+        }
+        if (side == ai) {
+            return aiHero == null ? null : aiHero.getPortrait();
+        }
+        return null;
+    }
+
+    /** 场景根容器（震屏用），无场景时返回 null。 */
+    private Region sceneRootNode() {
+        Scene scene = handBox.getScene();
+        return scene != null && scene.getRoot() instanceof Region region ? region : null;
     }
 
     /** 在双方战场里找到某个随从对应的控件。 */
@@ -293,22 +462,103 @@ public class CardGameApp extends Application {
         return null;
     }
 
-    /** 出牌。 */
-    private void playCard(Card card) {        if (!yourTurn || gameOver()) {
+    /** 出牌（带"卡牌从手牌飞向战场"的动效）。 */
+    private void playCard(Card card) {
+        if (!yourTurn || gameOver()) {
             return;
         }
-        boolean acted = false;
+        // 找到被点击的那张手牌控件，作为飞行动画的起点
+        Node sourceCard = null;
+        for (Node n : handBox.getChildren()) {
+            if (n instanceof CardView cv && cv.getCard() == card) {
+                sourceCard = n;
+                break;
+            }
+        }
+
+        boolean acted;
         if (card instanceof MinionCard minion) {
             acted = engine.playMinion(player, minion, this::log);
         } else if (card instanceof SpellCard spell) {
             acted = engine.playSpell(player, ai, spell, this::log);
         } else if (card instanceof PetCard pet) {
             acted = engine.playPet(player, pet, this::log);
+        } else {
+            acted = false;
         }
-        if (acted) {
-            checkGameOver();
+
+        if (!acted) {
+            refresh();
+            return;
         }
+
+        checkGameOver();
         refresh();
+
+        // 出牌动效：用起点卡片的快照飞向对应的落点
+        if (sourceCard != null && fxLayer != null && fxLayer.getScene() != null) {
+            animateCardFly(card, sourceCard);
+        }
+    }
+
+    /** 用 snapshot 快照做"卡牌飞入战场"的视觉。 */
+    private void animateCardFly(Card card, Node sourceCard) {
+        Node destination = null;
+        if (card instanceof MinionCard m) {
+            destination = findMinionNode(m);
+        } else if (card instanceof PetCard) {
+            destination = playerHero == null ? null : playerHero.getPortrait();
+        } else {
+            // 法术：飞向敌方英雄（技能效果作用于对方）
+            destination = aiHero == null ? null : aiHero.getPortrait();
+        }
+        if (destination == null) {
+            return;
+        }
+
+        var src = sourceCard.localToScene(sourceCard.getBoundsInLocal());
+        var dst = destination.localToScene(destination.getBoundsInLocal());
+        WritableImage snap = sourceCard.snapshot(null, null);
+        ImageView ghost = new ImageView(snap);
+        ghost.setFitWidth(src.getWidth());
+        ghost.setFitHeight(src.getHeight());
+        ghost.setOpacity(0.95);
+        ghost.setMouseTransparent(true);
+
+        var root = fxLayer.getScene().getRoot();
+        var rootBounds = root.localToScene(root.getBoundsInLocal());
+        double startX = src.getMinX() - rootBounds.getMinX();
+        double startY = src.getMinY() - rootBounds.getMinY();
+        double endX = dst.getMinX() - rootBounds.getMinX() + (dst.getWidth() - src.getWidth()) / 2;
+        double endY = dst.getMinY() - rootBounds.getMinY() + (dst.getHeight() - src.getHeight()) / 2;
+
+        ghost.setLayoutX(0);
+        ghost.setLayoutY(0);
+        ghost.setTranslateX(startX);
+        ghost.setTranslateY(startY);
+        Fx.mountOn(fxLayer, ghost);
+        Fx.flyCard(ghost, startX, startY, endX, endY,
+                () -> fxLayer.getChildren().remove(ghost));
+
+        // 法术额外拖一条粒子尾迹，让"施法"更有存在感
+        if (card instanceof SpellCard) {
+            Color tint = ((SpellCard) card).getKind() == SpellCard.Kind.DAMAGE
+                    ? Color.web("#7fc4ff") : Color.web("#8cf0a8");
+            Timeline trail = new Timeline();
+            for (int i = 1; i <= 9; i++) {
+                trail.getKeyFrames().add(new KeyFrame(Duration.millis(i * 46), e -> emitTrail(ghost, tint)));
+            }
+            trail.play();
+        }
+    }
+
+    /** 在飞行的卡牌当前位置撒一撮尾迹粒子。 */
+    private void emitTrail(Node ghost, Color tint) {
+        if (particleLayer == null || ghost.getScene() == null) {
+            return;
+        }
+        var b = ghost.localToScene(ghost.getBoundsInLocal());
+        particleLayer.trail(b.getMinX() + b.getWidth() / 2, b.getMinY() + b.getHeight() / 2, tint, 5);
     }
 
     /** 选中攻击者，或取消选择。 */
@@ -319,6 +569,8 @@ public class CardGameApp extends Application {
         if (selectedAttacker == minion) {
             selectedAttacker = null;
             log("取消选择：" + minion.getName());
+        } else if (minion.isAttackedThisTurn()) {
+            log(minion.getName() + " 本回合已经攻击过了");
         } else if (minion.isSummoningSickness()) {
             log(minion.getName() + " 召唤失调，本回合还不能攻击");
         } else {
@@ -334,9 +586,11 @@ public class CardGameApp extends Application {
         }
         MinionCard attacker = selectedAttacker;
         selectedAttacker = null;
-        engine.attack(player, ai, attacker, target, this::log);
-        checkGameOver();
-        refresh();
+        playAttack(attacker, findMinionNode(target), () -> {
+            engine.attack(player, ai, attacker, target, this::log);
+            checkGameOver();
+            refresh();
+        });
     }
 
     private void attackHero() {
@@ -345,9 +599,36 @@ public class CardGameApp extends Application {
         }
         MinionCard attacker = selectedAttacker;
         selectedAttacker = null;
-        engine.attack(player, ai, attacker, null, this::log);
-        checkGameOver();
-        refresh();
+        Node heroNode = aiHero == null ? null : aiHero.getPortrait();
+        playAttack(attacker, heroNode, () -> {
+            engine.attack(player, ai, attacker, null, this::log);
+            checkGameOver();
+            refresh();
+        });
+    }
+
+    /** 播放攻击动效（突刺 → 撞击反馈 → 结算）。 */
+    private void playAttack(MinionCard attacker, Node targetNode, Runnable resolve) {
+        Node attackerNode = findMinionNode(attacker);
+        SoundEngine.play(Sfx.ATTACK);
+        if (attackerNode == null) {
+            resolve.run();
+            return;
+        }
+        // atImpact：前冲到位那一刻的火花与抖屏；onComplete：整套动画结束再结算伤害
+        Fx.lunge(attackerNode, targetNode, () -> impactFeedback(targetNode), resolve);
+    }
+
+    /** 撞击反馈：目标位置迸出金色火花 + 轻微抖屏。 */
+    private void impactFeedback(Node targetNode) {
+        if (targetNode != null && particleLayer != null && targetNode.getScene() != null) {
+            var b = targetNode.localToScene(targetNode.getBoundsInLocal());
+            if (b.getWidth() > 0 && b.getHeight() > 0) {
+                particleLayer.burst(b.getMinX() + b.getWidth() / 2,
+                        b.getMinY() + b.getHeight() / 2, Color.web("#ffd166"), 16);
+            }
+        }
+        Fx.shake(sceneRootNode(), 4.0);
     }
 
     private void endYourTurn() {
@@ -361,8 +642,9 @@ public class CardGameApp extends Application {
         runAiTurn();
     }
 
-    /** AI 在后台线程跑一整个回合，避免界面卡死。 */
+    /** AI 回合前的短暂停顿，然后回到界面线程逐步演出整个回合。 */
     private void runAiTurn() {
+        final int generation = gameGeneration;
         new Thread(() -> {
             try {
                 Thread.sleep(500);
@@ -370,37 +652,141 @@ public class CardGameApp extends Application {
                 Thread.currentThread().interrupt();
             }
             Platform.runLater(() -> {
-                engine.playTurn(ai, player, this::log);
-                checkGameOver();
-                if (!gameOver()) {
-                    yourTurn = true;
-                    engine.startPlayerTurn(player, ai, this::log);
-                    statusLabel.setText("你的回合 · 请出牌");
+                // 期间玩家可能已经点过「开始游戏」，这一局早就作废了
+                if (generation == gameGeneration) {
+                    planAiTurn();
                 }
-                selectedAttacker = null;
-                refresh();
             });
         }).start();
+    }
+
+    /**
+     * 把 AI 回合拆成"一个动作一步"的脚本，逐步播放。
+     *
+     * 之前是一口气把整个回合跑完，结果所有音效在同一帧炸响、粒子挤成一团、玩家也看不清
+     * AI 做了什么。现在每步之间留 {@link #AI_STEP_GAP} 的间隔，攻击还等突刺动画演完再结算。
+     */
+    private void planAiTurn() {
+        if (ai == null || player == null || gameOver()) {
+            aiSteps.clear();
+            return;
+        }
+        aiSteps.clear();
+        engine.beginAiTurn(ai, this::log);
+        refresh();
+
+        aiSteps.add(() -> {
+            if (engine.aiSummon(ai, this::log)) {
+                refresh();
+            }
+        });
+        aiSteps.add(() -> {
+            if (engine.aiSpell(ai, player, this::log)) {
+                refresh();
+            }
+        });
+        aiSteps.add(() -> {
+            if (engine.aiPet(ai, this::log)) {
+                refresh();
+            }
+        });
+        for (MinionCard attacker : engine.aiReadyAttackers(ai)) {
+            aiSteps.add(() -> performAiStrike(attacker));
+        }
+        aiSteps.add(() -> {
+            engine.endAiTurn(ai, player, this::log);
+            finishAiTurn();
+        });
+        runNextAiStep();
+    }
+
+    /** AI 的一次出手：先把突刺演给玩家看，动画结束再真正结算伤害。 */
+    private void performAiStrike(MinionCard attacker) {
+        if (gameOver() || !ai.getField().contains(attacker) || attacker.isSummoningSickness()) {
+            return;
+        }
+        MinionCard target = engine.chooseAiTarget(ai, player).orElse(null);
+        Runnable strike = () -> {
+            if (gameOver()) {
+                return;
+            }
+            engine.aiStrike(ai, player, attacker, target, this::log);
+            refresh();
+            checkGameOver();
+        };
+        Node attackerNode = findMinionNode(attacker);
+        Node targetNode = target != null ? findMinionNode(target) : heroPortrait(player);
+        SoundEngine.play(Sfx.ATTACK);
+        if (attackerNode == null) {
+            strike.run();
+            return;
+        }
+        Fx.lunge(attackerNode, targetNode, () -> impactFeedback(targetNode), strike);
+    }
+
+    /** 推进一步 AI 演出；队列空了或分出胜负就停下。 */
+    private void runNextAiStep() {
+        if (aiSteps.isEmpty() || gameOver()) {
+            aiSteps.clear();
+            return;
+        }
+        aiSteps.poll().run();
+        if (aiSteps.isEmpty()) {
+            return;
+        }
+        var gap = new javafx.animation.PauseTransition(AI_STEP_GAP);
+        gap.setOnFinished(e -> runNextAiStep());
+        gap.play();
+    }
+
+    /** AI 回合收尾：把回合交还给玩家（若已分出胜负则不再开局）。 */
+    private void finishAiTurn() {
+        checkGameOver();
+        if (!gameOver()) {
+            yourTurn = true;
+            engine.startPlayerTurn(player, ai, this::log);
+            statusLabel.setText("你的回合 · 请出牌");
+        }
+        selectedAttacker = null;
+        refresh();
     }
 
     private boolean gameOver() {
         return player != null && (player.isDefeated() || ai.isDefeated());
     }
 
+    /** 胜负播报（引擎事件与界面自检都会走到这里，所以必须幂等）。 */
+    private void announceGameOver(boolean won) {
+        if (player == null || announcedOver) {
+            return;
+        }
+        announcedOver = true;
+        endTurnButton.setDisable(true);
+        if (won) {
+            log("胜利！敌方英雄被击溃。");
+            statusLabel.setText("你赢了！");
+            showBanner("胜 利", "#f0c96b");
+            SoundEngine.play(Sfx.WIN);
+            if (particleLayer != null) {
+                particleLayer.ambientDust(40);
+            }
+        } else {
+            log("败北……你的英雄倒下了。");
+            statusLabel.setText("你输了");
+            showBanner("败 北", "#ff6b6b");
+            SoundEngine.play(Sfx.LOSE);
+        }
+    }
+
+    /** 界面自检：只要有一方倒下就播报（法术斩杀等路径不会发 GAME_OVER 事件）。 */
     private void checkGameOver() {
-        if (player == null) {
+        if (player == null || announcedOver) {
             return;
         }
         if (player.isDefeated()) {
-            log("败北……你的英雄倒下了。");
-            statusLabel.setText("你输了");
-            endTurnButton.setDisable(true);
-            showBanner("败 北", "#ff6b6b");
+            announceGameOver(false);
         } else if (ai.isDefeated()) {
-            log("胜利！敌方英雄被击溃。");
-            statusLabel.setText("你赢了！");
-            endTurnButton.setDisable(true);
-            showBanner("胜 利", "#f0c96b");
+            announceGameOver(true);
         }
     }
 
@@ -425,6 +811,7 @@ public class CardGameApp extends Application {
         }
         aiHero.refresh();
         aiHero.markTarget(selectedAttacker != null && yourTurn);
+        Fx.breathe(aiHero.getPortrait(), !yourTurn && !gameOver());
         aiField.getChildren().add(aiHero);
 
         for (MinionCard m : ai.getField()) {
@@ -448,6 +835,7 @@ public class CardGameApp extends Application {
         }
         playerHero.refresh();
         playerHero.markActive(yourTurn && !gameOver());
+        Fx.breathe(playerHero.getPortrait(), yourTurn && !gameOver());
 
         for (MinionCard m : player.getField()) {
             MinionView view = new MinionView(m, player, true);
@@ -472,7 +860,13 @@ public class CardGameApp extends Application {
             boolean playable = yourTurn && !gameOver() && isPlayable(c);
             view.setPlayable(playable);
             handBox.getChildren().add(view);
+            // 刚抽到的牌补一段"从牌堆滑入"的入场动画
+            if (pendingDrawAnim.remove(c)) {
+                Fx.drawIn(view);
+            }
         }
+        // 没来得及演动画就被打出去的牌，清掉标记避免泄漏
+        pendingDrawAnim.removeIf(c -> !player.getHand().contains(c));
     }
 
     private boolean isPlayable(Card card) {
@@ -575,8 +969,104 @@ public class CardGameApp extends Application {
         anim.play();
     }
 
+    // ============ 自动对局（诊断冒烟测试） ============
+
+    /**
+     * -Dui.autoplay=&lt;回合数&gt;：程序自己跟 AI 打完若干回合后退出。
+     * 这是整局流程的冒烟测试（尤其是 AI 的逐步演出与突刺结算），
+     * 搭配 -Dui.screenshot=&lt;路径&gt; 可以在结束时留下一张截图。
+     */
+    private void startAutoplayIfRequested(Scene scene) {
+        String raw = System.getProperty("ui.autoplay");
+        if (raw == null) {
+            return;
+        }
+        try {
+            autoplayTurnsLeft = Integer.parseInt(raw.trim());
+        } catch (NumberFormatException ex) {
+            System.out.println("AUTOPLAY_BAD_ARG=" + raw);
+            return;
+        }
+        if (autoplayTurnsLeft <= 0) {
+            System.out.println("AUTOPLAY_BAD_ARG=" + raw);
+            return;
+        }
+        System.out.println("AUTOPLAY_START turns=" + autoplayTurnsLeft);
+        startNewGame();
+        scheduleAutoplayStep(AUTOPLAY_GAP);
+    }
+
+    private void scheduleAutoplayStep(Duration delay) {
+        var pause = new javafx.animation.PauseTransition(delay);
+        pause.setOnFinished(e -> autoplayStep());
+        pause.play();
+    }
+
+    /** 玩家的一个动作：出牌 → 攻击 → 结束回合；AI 回合期间只是等待。 */
+    private void autoplayStep() {
+        if (player == null || ai == null || gameOver()) {
+            finishAutoplay("game-over");
+            return;
+        }
+        if (++autoplaySteps > AUTOPLAY_STEP_CAP) {
+            finishAutoplay("step-cap");
+            return;
+        }
+        // AI 回合还在演（或还没开始演）：等它演完再轮到"玩家"
+        if (!yourTurn || !aiSteps.isEmpty()) {
+            scheduleAutoplayStep(AUTOPLAY_GAP);
+            return;
+        }
+        for (Card c : new ArrayList<>(player.getHand())) {
+            if (isPlayable(c)) {
+                playCard(c);
+                scheduleAutoplayStep(AUTOPLAY_GAP);
+                return;
+            }
+        }
+        for (MinionCard m : new ArrayList<>(player.getField())) {
+            if (!m.isSummoningSickness() && !m.isAttackedThisTurn()) {
+                selectedAttacker = m;
+                attackHero();
+                scheduleAutoplayStep(AUTOPLAY_GAP);
+                return;
+            }
+        }
+        autoplayTurnsLeft--;
+        if (autoplayTurnsLeft <= 0) {
+            finishAutoplay("turns-done");
+            return;
+        }
+        endYourTurn();
+        scheduleAutoplayStep(AUTOPLAY_GAP);
+    }
+
+    private void finishAutoplay(String reason) {
+        System.out.println("AUTOPLAY_END reason=" + reason
+                + " turn=" + (engine == null ? 0 : engine.getTurn())
+                + " playerLife=" + (player == null ? "-" : player.getLifePoints())
+                + " aiLife=" + (ai == null ? "-" : ai.getLifePoints()));
+        String shot = System.getProperty("ui.screenshot");
+        Scene scene = handBox.getScene();
+        if (shot != null && scene != null) {
+            // 等最后一帧动画落定再截图
+            var pause = new javafx.animation.PauseTransition(Duration.millis(700));
+            pause.setOnFinished(e -> {
+                saveScreenshot(scene, shot);
+                Platform.exit();
+            });
+            pause.play();
+            return;
+        }
+        Platform.exit();
+    }
+
     private void log(String msg) {
         logArea.appendText(msg + System.lineSeparator());
+        // 自动对局时把战报同步打到控制台，方便冒烟测试直接看流程
+        if (System.getProperty("ui.autoplay") != null) {
+            System.out.println("[game] " + msg);
+        }
     }
 
     // ============ 牌库 ============

@@ -73,4 +73,26 @@ class ManualTurnTest {
         assertTrue(engine.attack(self, foe, m, null, logs::add));
         assertEquals(PlayerState.START_LIFE - 3, foe.getLifePoints());
     }
+
+    /** 每个随从每回合只能攻击 1 次（否则可以无限点同一个随从把对手打穿）。 */
+    @Test
+    void eachMinionMayAttackOnlyOncePerTurn() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard m = minion("打手", 3, 3);
+        m.setSummoningSickness(false);
+        self.getField().add(m);
+        List<String> logs = new ArrayList<>();
+
+        assertTrue(engine.attack(self, foe, m, null, logs::add));
+        assertFalse(engine.attack(self, foe, m, null, logs::add),
+                "同一随从本回合不能攻击第二次");
+        assertEquals(PlayerState.START_LIFE - 3, foe.getLifePoints(), "只结算了一次伤害");
+
+        // 回合结束后重新可以攻击
+        engine.endPlayerTurn(self, foe, logs::add);
+        assertTrue(engine.attack(self, foe, m, null, logs::add));
+        assertEquals(PlayerState.START_LIFE - 6, foe.getLifePoints());
+    }
 }
