@@ -38,6 +38,8 @@ import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
 import org.example.card.model.SpellCard;
+import org.example.card.service.ConfigService;
+import org.example.card.service.I18n;
 import org.example.card.ui.fx.Fx;
 import org.example.card.ui.fx.ParticleLayer;
 import org.example.card.ui.fx.Sfx;
@@ -81,6 +83,12 @@ public class CardGameApp extends Application {
     private ParticleLayer particleLayer;
     private Pane fxLayer;
     private Button soundButton;
+    /** 用户配置（音效开关等，启动时读盘、切换时落盘）。 */
+    private final ConfigService config = new ConfigService();
+
+    private String soundLabel() {
+        return I18n.get(SoundEngine.isEnabled() ? "sound.on" : "sound.off");
+    }
     /** 胜负只播报一次（引擎事件与界面自检都会触发）。 */
     private boolean announcedOver;
     /** 自动对局（冒烟测试）每步间隔。 */
@@ -92,6 +100,9 @@ public class CardGameApp extends Application {
 
     @Override
     public void start(Stage stage) {
+        // 用户配置先行：音效开关读盘（文件缺失/损坏则用默认值，不影响启动）
+        config.load();
+        SoundEngine.setEnabled(config.isSoundEnabled());
         logArea.setEditable(false);
         logArea.setWrapText(true);
         logArea.getStyleClass().add("log-view");
@@ -106,11 +117,13 @@ public class CardGameApp extends Application {
         endTurnButton.setDisable(true);
         endTurnButton.setOnAction(e -> endYourTurn());
 
-        soundButton = new Button(SoundEngine.isEnabled() ? "音效：开" : "音效：关");
+        soundButton = new Button(soundLabel());
         soundButton.getStyleClass().add("btn");
         soundButton.setOnAction(e -> {
             SoundEngine.setEnabled(!SoundEngine.isEnabled());
-            soundButton.setText(SoundEngine.isEnabled() ? "音效：开" : "音效：关");
+            config.setSoundEnabled(SoundEngine.isEnabled());
+            config.save();
+            soundButton.setText(soundLabel());
             if (SoundEngine.isEnabled()) {
                 SoundEngine.play(Sfx.TURN);
             }
