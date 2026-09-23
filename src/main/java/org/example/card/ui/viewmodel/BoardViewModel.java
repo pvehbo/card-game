@@ -10,8 +10,6 @@ import org.example.card.engine.GameSession;
 import org.example.card.event.GameEvent;
 import org.example.card.model.Card;
 import org.example.card.model.MinionCard;
-import org.example.card.model.PetCard;
-import org.example.card.model.SpellCard;
 
 /**
  * 战场 ViewModel（S7）：界面唯一的真相源。
@@ -99,14 +97,8 @@ public final class BoardViewModel {
         if (session == null || engine == null) {
             return false;
         }
-        if (card instanceof MinionCard) {
-            return engine.canPlayMinion(session.getPlayer());
-        } else if (card instanceof SpellCard) {
-            return engine.canPlaySpell(session.getPlayer());
-        } else if (card instanceof PetCard) {
-            return engine.canPlayPet(session.getPlayer());
-        }
-        return false;
+        // 次数限 + 费用合并判断：费用不够自动置灰
+        return engine.canPlay(session.getPlayer(), card);
     }
 
     // ============ 抽牌动画标记 ============

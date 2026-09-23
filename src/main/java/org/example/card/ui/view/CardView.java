@@ -103,11 +103,11 @@ public class CardView extends StackPane {
                     badge(String.valueOf(minion.getMaxHealth()), "badge-health", 1, -1));
         }
 
-        // 左上角费用圆（v1 无费用，用类型色圆点表示卡牌类别）
+        // 左上角费用圆（B-1：显示费用数字；0 费显示 0）
         Circle costCircle = new Circle(12);
         costCircle.getStyleClass().add("cost-circle");
         costCircle.setMouseTransparent(true);
-        Label costText = new Label(typeShort(card));
+        Label costText = new Label(String.valueOf(card.getCost()));
         costText.getStyleClass().add("cost-text");
         costText.setMouseTransparent(true);
         StackPane cost = new StackPane(costCircle, costText);
@@ -185,17 +185,6 @@ public class CardView extends StackPane {
                 case HEAL -> "癒";
                 case DRAW -> "卷";
             };
-        } else if (card instanceof PetCard) {
-            return "靈";
-        }
-        return "?";
-    }
-
-    private static String typeShort(Card card) {
-        if (card instanceof MinionCard) {
-            return "兵";
-        } else if (card instanceof SpellCard) {
-            return "術";
         } else if (card instanceof PetCard) {
             return "靈";
         }

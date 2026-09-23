@@ -111,7 +111,7 @@ public final class CardDatabase {
         if (health < 0) {
             throw new IllegalStateException(obj.atKey("health", "health 不能为负数：" + health));
         }
-        return new MinionCard(id, name, text, attack, health);
+        return new MinionCard(id, name, text, attack, health, (int) cost);
     }
 
     private static SpellCard parseSpell(MiniJson.Obj obj, String id, String name, String text,
@@ -129,7 +129,7 @@ public final class CardDatabase {
             throw new IllegalStateException(obj.atKey("amount",
                     "法术 amount 必须大于 0：" + amount));
         }
-        return new SpellCard(id, name, text, toSpellKind(kind), (int) amount);
+        return new SpellCard(id, name, text, toSpellKind(kind), (int) amount, (int) cost);
     }
 
     private static PetCard parsePet(MiniJson.Obj obj, String id, String name, String text,
@@ -142,7 +142,7 @@ public final class CardDatabase {
         if (healthBonus < 0) {
             throw new IllegalStateException(obj.atKey("healthBonus", "healthBonus 不能为负数：" + healthBonus));
         }
-        return new PetCard(id, name, text, attackBonus, healthBonus);
+        return new PetCard(id, name, text, attackBonus, healthBonus, (int) cost);
     }
 
     private static SpellCard.Kind toSpellKind(Keyword keyword) {

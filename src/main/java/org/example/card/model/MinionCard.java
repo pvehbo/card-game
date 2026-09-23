@@ -8,6 +8,7 @@ public class MinionCard extends Card {
 
     private final int attack;
     private final int maxHealth;
+    private final int cost;
     private int damageTaken;
     /** 召唤失调：上场当回合不可攻击，己方回合结束时解除。 */
     private boolean summoningSickness = true;
@@ -15,9 +16,16 @@ public class MinionCard extends Card {
     private boolean attackedThisTurn;
 
     public MinionCard(String id, String name, String description, int attack, int maxHealth) {
+        this(id, name, description, attack, maxHealth, 0);
+    }
+
+    /** 老卡默认 0 费；新卡走 JSON cost（见 data.CardDatabase）。 */
+    public MinionCard(String id, String name, String description,
+                      int attack, int maxHealth, int cost) {
         super(id, name, description);
         this.attack = attack;
         this.maxHealth = maxHealth;
+        this.cost = Math.max(0, cost);
     }
 
     public int getAttack() {
@@ -56,6 +64,11 @@ public class MinionCard extends Card {
     @Override
     public String typeName() {
         return "随从";
+    }
+
+    @Override
+    public int getCost() {
+        return cost;
     }
 
     @Override

@@ -4,8 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.example.card.model.Card;
 import org.example.card.model.MinionCard;
+import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
+import org.example.card.model.SpellCard;
 
 /**
  * 合法动作唯一入口（S1 从 GameEngine 抽出，不改玩法）。
@@ -40,6 +43,51 @@ public final class ActionValidator {
     /** 本回合还没召唤过宠物。 */
     public static boolean canPlayPet(PlayerState self) {
         return !self.isPetPlayed();
+    }
+
+    /** 法力是否够打出这张牌。 */
+    public static boolean canAfford(PlayerState self, Card card) {
+        return self.canAfford(card.getCost());
+    }
+
+    /**
+     * 打出这张牌的完整条件：次数限 + 费用（B-1）。
+     * UI 置灰与结算共用这一份；次数口径（canPlayXxx）保持不变供旧逻辑复用。
+     */
+    public static boolean canPlay(PlayerState self, Card card) {
+        if (card instanceof MinionCard) {
+            return canPlayMinion(self) && canAfford(self, card);
+        } else if (card instanceof SpellCard) {
+            return canPlaySpell(self) && canAfford(self, card);
+        } else if (card instanceof PetCard) {
+            return canPlayPet(self) && canAfford(self, card);
+        }
+        return false;
+    }
+
+    /** 打不出时给界面的原因（次数用尽优先，费用不够其次）。 */
+    public static Optional<String> playRejectReason(PlayerState self, Card card) {
+        boolean countOk;
+        String countMsg;
+        if (card instanceof MinionCard) {
+            countOk = canPlayMinion(self);
+            countMsg = "无法上场：本回合已上过随从或场上已满 7 格";
+        } else if (card instanceof SpellCard) {
+            countOk = canPlaySpell(self);
+            countMsg = "无法打出：本回合已用过法术";
+        } else if (card instanceof PetCard) {
+            countOk = canPlayPet(self);
+            countMsg = "无法召唤：本回合已召唤过宠物";
+        } else {
+            return Optional.of("未知卡牌类型");
+        }
+        if (!countOk) {
+            return Optional.of(countMsg);
+        }
+        if (!canAfford(self, card)) {
+            return Optional.of("费用不够：需要 " + card.getCost() + " 点法力");
+        }
+        return Optional.empty();
     }
 
     // ============ 攻击 ============

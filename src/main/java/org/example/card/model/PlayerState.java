@@ -24,17 +24,46 @@ public class PlayerState {
     private boolean minionPlayed;
     private boolean spellPlayed;
     private boolean petPlayed;
+    /** 法力：上限每回合 +1（10 封顶），开局 0；新回合回满（B-1 费用体系）。 */
+    private int maxMana;
+    private int mana;
 
     public PlayerState(String name, Deck deck) {
         this.name = name;
         this.deck = deck;
     }
 
-    /** 新回合开始前调用，重置本回合的出牌次数标志。 */
+    /** 新回合开始前调用：重置出牌次数，法力上限 +1（10 封顶）并回满。 */
     public void resetTurnFlags() {
         minionPlayed = false;
         spellPlayed = false;
         petPlayed = false;
+        maxMana = Math.min(10, maxMana + 1);
+        mana = maxMana;
+    }
+
+    public int getMana() {
+        return mana;
+    }
+
+    public int getMaxMana() {
+        return maxMana;
+    }
+
+    /** 法力是否够打出这张牌。 */
+    public boolean canAfford(int cost) {
+        return mana >= cost;
+    }
+
+    /** 支付费用（调用方需先经 ActionValidator.canPlay 校验）。 */
+    public void spendMana(int cost) {
+        mana = Math.max(0, mana - Math.max(0, cost));
+    }
+
+    /** 读档恢复法力（仅 SaveService 用）。 */
+    public void restoreMana(int mana, int maxMana) {
+        this.maxMana = Math.max(0, maxMana);
+        this.mana = Math.min(this.maxMana, Math.max(0, mana));
     }
 
     public boolean isMinionPlayed() {

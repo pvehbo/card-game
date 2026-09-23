@@ -67,7 +67,8 @@ public final class BoardView {
         refreshHand();
         PlayerState player = vm.session().getPlayer();
         pileLabel.setText("牌堆 " + player.getDeck().size() + " · 墓地 "
-                + player.getGraveyard().size() + " · 第 " + Math.max(1, vm.turn()) + " 回合");
+                + player.getGraveyard().size() + " · 法力 " + player.getMana()
+                + "/" + player.getMaxMana() + " · 第 " + Math.max(1, vm.turn()) + " 回合");
     }
 
     private void refreshAiZone() {

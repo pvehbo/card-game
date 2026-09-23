@@ -30,6 +30,9 @@ public abstract class Card {
     /** 卡牌类型名（随从 / 法术 / 宠物），UI 展示用。 */
     public abstract String typeName();
 
+    /** 费用（v1 老卡全 0；B-1 起结算与置灰都认它）。 */
+    public abstract int getCost();
+
     @Override
     public String toString() {
         return typeName() + "《" + name + "》";

@@ -114,20 +114,21 @@ public class GameEngine {
 
     /** AI 上场 1 张随从。返回是否真的上了场。 */
     public boolean aiSummon(PlayerState self, Consumer<String> log) {
-        if (!ActionValidator.canPlayMinion(self)) {
-            if (self.getField().size() >= PlayerState.MAX_FIELD) {
-                log.accept("场上已满 7 格，本回合【AI】不上随从");
-            }
-            return false;
-        }
         Optional<MinionCard> summon = ai.chooseMinion(self.getHand());
         if (summon.isEmpty()) {
             return false;
         }
         MinionCard minion = summon.get();
+        if (!ActionValidator.canPlay(self, minion)) {
+            if (self.getField().size() >= PlayerState.MAX_FIELD) {
+                log.accept("场上已满 7 格，本回合【AI】不上随从");
+            }
+            return false;
+        }
         self.getHand().remove(minion);
         self.getField().add(minion);
         self.setMinionPlayed(true);
+        self.spendMana(minion.getCost());
         String msg = "上场随从：" + minion;
         log.accept(msg);
         eventBus.publish(GameEvent.summon(self, minion, msg));
@@ -145,8 +146,12 @@ public class GameEngine {
             return false;
         }
         SpellCard card = spell.get();
+        if (!ActionValidator.canAfford(self, card)) {
+            return false;
+        }
         self.getHand().remove(card);
         self.setSpellPlayed(true);
+        self.spendMana(card.getCost());
         resolveSpell(card, self, foe, log);
         self.getGraveyard().add(card);
         return true;
@@ -162,9 +167,13 @@ public class GameEngine {
             return false;
         }
         PetCard card = pet.get();
+        if (!ActionValidator.canAfford(self, card)) {
+            return false;
+        }
         self.getHand().remove(card);
         self.getPets().add(card);
         self.setPetPlayed(true);
+        self.spendMana(card.getCost());
         String msg = "召唤宠物：" + card + "（常驻光环）";
         log.accept(msg);
         eventBus.publish(GameEvent.pet(self, card, msg));
@@ -234,13 +243,24 @@ public class GameEngine {
         return ActionValidator.canPlayMinion(self);
     }
 
+    /** 打出这张牌的完整条件：次数限 + 费用（UI 置灰与结算共用）。 */
+    public boolean canPlay(PlayerState self, Card card) {
+        return ActionValidator.canPlay(self, card);
+    }
+
     /** 玩家上场一张手牌随从。返回是否成功。 */
     public boolean playMinion(PlayerState self, MinionCard minion, Consumer<String> log) {
-        if (!canPlayMinion(self) || !self.getHand().remove(minion)) {
+        Optional<String> reason = ActionValidator.playRejectReason(self, minion);
+        if (reason.isPresent()) {
+            log.accept(reason.get());
+            return false;
+        }
+        if (!self.getHand().remove(minion)) {
             log.accept("无法上场：本回合已上过随从或场上已满 7 格");
             return false;
         }
         self.setMinionPlayed(true);
+        self.spendMana(minion.getCost());
         self.getField().add(minion);
         String msg = "你上场了随从：" + minion;
         log.accept(msg);
@@ -256,11 +276,17 @@ public class GameEngine {
 
     /** 玩家打出一张手牌法术并立即结算。返回是否成功。 */
     public boolean playSpell(PlayerState self, PlayerState foe, SpellCard spell, Consumer<String> log) {
-        if (!canPlaySpell(self) || !self.getHand().remove(spell)) {
+        Optional<String> reason = ActionValidator.playRejectReason(self, spell);
+        if (reason.isPresent()) {
+            log.accept(reason.get());
+            return false;
+        }
+        if (!self.getHand().remove(spell)) {
             log.accept("无法打出：本回合已用过法术");
             return false;
         }
         self.setSpellPlayed(true);
+        self.spendMana(spell.getCost());
         resolveSpell(spell, self, foe, log);
         self.getGraveyard().add(spell);
         return true;
@@ -273,11 +299,17 @@ public class GameEngine {
 
     /** 玩家召唤一只手牌宠物（常驻光环）。返回是否成功。 */
     public boolean playPet(PlayerState self, PetCard pet, Consumer<String> log) {
-        if (!canPlayPet(self) || !self.getHand().remove(pet)) {
+        Optional<String> reason = ActionValidator.playRejectReason(self, pet);
+        if (reason.isPresent()) {
+            log.accept(reason.get());
+            return false;
+        }
+        if (!self.getHand().remove(pet)) {
             log.accept("无法召唤：本回合已召唤过宠物");
             return false;
         }
         self.setPetPlayed(true);
+        self.spendMana(pet.getCost());
         self.getPets().add(pet);
         String msg = "你召唤了宠物：" + pet + "（常驻光环）";
         log.accept(msg);

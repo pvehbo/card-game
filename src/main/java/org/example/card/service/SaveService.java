@@ -26,6 +26,8 @@ public final class SaveService {
 
     public static final int SAVE_VERSION = 1;
     private static final String SOURCE = "save";
+    // 注：mana/maxMana 系 B-1 加入的必填字段；v1.1.0 的 SaveService 从未被界面接线，
+    // 野生存档不存在，故版本号不升级。
 
     private SaveService() {
     }
@@ -67,6 +69,8 @@ public final class SaveService {
 
     private static void writeSide(StringBuilder out, PlayerState state) {
         out.append("{\"life\":").append(state.getLifePoints());
+        out.append(",\"mana\":").append(state.getMana());
+        out.append(",\"maxMana\":").append(state.getMaxMana());
         out.append(",\"hand\":");
         writeIds(out, state.getHand());
         out.append(",\"field\":[");
@@ -127,6 +131,7 @@ public final class SaveService {
         PlayerState state = new PlayerState(name, new Deck(deckCards));
         int life = (int) number(obj, "life");
         state.damage(PlayerState.START_LIFE - life);
+        state.restoreMana((int) number(obj, "mana"), (int) number(obj, "maxMana"));
         for (String id : strings(obj.get("hand").asArray())) {
             state.getHand().add(freshCopy(id, templates));
         }

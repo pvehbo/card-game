@@ -8,11 +8,19 @@ public class PetCard extends Card {
 
     private final int attackBonus;
     private final int healthBonus;
+    private final int cost;
 
     public PetCard(String id, String name, String description, int attackBonus, int healthBonus) {
+        this(id, name, description, attackBonus, healthBonus, 0);
+    }
+
+    /** 老卡默认 0 费；新卡走 JSON cost（见 data.CardDatabase）。 */
+    public PetCard(String id, String name, String description,
+                   int attackBonus, int healthBonus, int cost) {
         super(id, name, description);
         this.attackBonus = attackBonus;
         this.healthBonus = healthBonus;
+        this.cost = Math.max(0, cost);
     }
 
     /** 己方随从攻击 +N。 */
@@ -28,6 +36,11 @@ public class PetCard extends Card {
     @Override
     public String typeName() {
         return "宠物";
+    }
+
+    @Override
+    public int getCost() {
+        return cost;
     }
 
     @Override

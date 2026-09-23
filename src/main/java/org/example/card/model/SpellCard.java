@@ -14,11 +14,18 @@ public class SpellCard extends Card {
 
     private final Kind kind;
     private final int amount;
+    private final int cost;
 
     public SpellCard(String id, String name, String description, Kind kind, int amount) {
+        this(id, name, description, kind, amount, 0);
+    }
+
+    /** 老卡默认 0 费；新卡走 JSON cost（见 data.CardDatabase）。 */
+    public SpellCard(String id, String name, String description, Kind kind, int amount, int cost) {
         super(id, name, description);
         this.kind = kind;
         this.amount = amount;
+        this.cost = Math.max(0, cost);
     }
 
     public Kind getKind() {
@@ -32,6 +39,11 @@ public class SpellCard extends Card {
     @Override
     public String typeName() {
         return "法术";
+    }
+
+    @Override
+    public int getCost() {
+        return cost;
     }
 
     @Override
