@@ -1,10 +1,8 @@
 package org.example.card.ai;
 
-import org.example.card.engine.GameEngine;
 import org.example.card.model.Card;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
-import org.example.card.model.PlayerState;
 import org.example.card.model.SpellCard;
 
 import java.util.Comparator;
@@ -71,14 +69,6 @@ public class SimpleAi implements AiStrategy {
                 .or(() -> Optional.of(spells.get(0)));
     }
 
-    /**
-     * @deprecated 改用 {@link #chooseSpell(GameView, List)}；本方法拍快照后转调新方法，行为不变。
-     */
-    @Deprecated
-    public Optional<SpellCard> chooseSpell(List<Card> hand, PlayerState self, PlayerState foe) {
-        return chooseSpell(GameView.snapshot(self, foe), hand);
-    }
-
     @Override
     public Optional<PetCard> choosePet(List<Card> hand) {
         return hand.stream()
@@ -97,18 +87,5 @@ public class SimpleAi implements AiStrategy {
         return legalTargets.stream()
                 .min(Comparator.comparingInt(Target::currentHealth))
                 .map(Target::card);
-    }
-
-    /**
-     * @deprecated 改用 {@link #chooseAttackTarget(GameView, List)}；本方法用 GameEngine.currentHealth
-     *             把 MinionCard 映射成 Target 后转调新方法，行为不变。
-     */
-    @Deprecated
-    public Optional<MinionCard> chooseAttackTarget(PlayerState self, PlayerState foe,
-                                                   List<MinionCard> legalTargets) {
-        List<Target> targets = legalTargets.stream()
-                .map(m -> new Target(m, GameEngine.currentHealth(foe, m)))
-                .toList();
-        return chooseAttackTarget(GameView.snapshot(self, foe), targets);
     }
 }

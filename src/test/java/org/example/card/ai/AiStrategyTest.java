@@ -52,36 +52,37 @@ class AiStrategyTest {
         assertEquals(strong, ai.chooseMinion(hand).orElseThrow());
     }
 
-    /** 法术：新旧重载从同一份状态得出同一张法术（斩杀 / 回血 / 过牌三条分支都验证）。 */
+    /** 法术：新快照版 chooseSpell 三条分支（斩杀 / 回血 / 过牌）各选对牌。 */
     @Test
-    void spellOverloadsAgree() {
+    void spellBranchesPickRightCard() {
         // 斩杀：对方 5 血，火球打 6
-        checkSpellAgreement(20, 5, new SpellCard("s2", "火球术", "打6", SpellCard.Kind.DAMAGE, 6),
-                new SpellCard("s3", "回春术", "回4", SpellCard.Kind.HEAL, 4));
+        SpellCard lethal = new SpellCard("s2", "火球术", "打6", SpellCard.Kind.DAMAGE, 6);
+        SpellCard heal = new SpellCard("s3", "回春术", "回4", SpellCard.Kind.HEAL, 4);
+        assertEquals(lethal, pickSpell(20, 5, lethal, heal));
         // 血危回血：自己 <=10 血，敌方满血，应选治疗而非打伤害
-        checkSpellAgreement(5, 20, new SpellCard("s4", "火球术", "打3", SpellCard.Kind.DAMAGE, 3),
-                new SpellCard("s5", "回春术", "回4", SpellCard.Kind.HEAL, 4));
+        SpellCard poke = new SpellCard("s4", "火球术", "打3", SpellCard.Kind.DAMAGE, 3);
+        SpellCard cure = new SpellCard("s5", "回春术", "回4", SpellCard.Kind.HEAL, 4);
+        assertEquals(cure, pickSpell(5, 20, poke, cure));
         // 手牌少时过牌：自己满血、非斩杀、牌 <=3 张，应选过牌
-        checkSpellAgreement(20, 20, new SpellCard("s6", "火球术", "打2", SpellCard.Kind.DAMAGE, 2),
-                new SpellCard("s7", "奥术智慧", "抽2", SpellCard.Kind.DRAW, 2));
+        SpellCard chip = new SpellCard("s6", "火球术", "打2", SpellCard.Kind.DAMAGE, 2);
+        SpellCard draw = new SpellCard("s7", "奥术智慧", "抽2", SpellCard.Kind.DRAW, 2);
+        assertEquals(draw, pickSpell(20, 20, chip, draw));
     }
 
-    /** 同一份手牌/对局走新旧两条 chooseSpell 路径，结果必须一致。 */
-    private void checkSpellAgreement(int selfLife, int foeLife, SpellCard damage, SpellCard utility) {
+    /** 同一份手牌/对局走快照版 chooseSpell，返回指定分支的牌。 */
+    private SpellCard pickSpell(int selfLife, int foeLife, SpellCard damage, SpellCard utility) {
         PlayerState self = playerOf("AI", new ArrayList<>());
         PlayerState foe = playerOf("你", new ArrayList<>());
         self.damage(PlayerState.START_LIFE - selfLife);
         foe.damage(PlayerState.START_LIFE - foeLife);
         self.getHand().addAll(List.of(damage, utility));
 
-        Optional<SpellCard> old = ai.chooseSpell(self.getHand(), self, foe);
-        Optional<SpellCard> fresh = ai.chooseSpell(GameView.snapshot(self, foe), self.getHand());
-        assertEquals(old, fresh, "新旧 chooseSpell 重载结果必须一致");
+        return ai.chooseSpell(GameView.snapshot(self, foe), self.getHand()).orElseThrow();
     }
 
-    /** 随从攻击目标：新旧重载一致（含宠物光环血量），空目标列表（打脸）都返回 empty。 */
+    /** 随从攻击目标：快照版选当前血量最低（含宠物光环血量），空目标列表（打脸）返回 empty。 */
     @Test
-    void attackTargetOverloadsAgreeAndFaceHitWhenEmpty() {
+    void attackTargetPicksLowestHealthAndEmptyWhenNoTargets() {
         PlayerState self = playerOf("AI", new ArrayList<>());
         PlayerState foe = playerOf("你", new ArrayList<>());
         MinionCard weak = minion("脆皮", 1, 2);
@@ -91,21 +92,17 @@ class AiStrategyTest {
         foe.getField().add(tank);
         foe.getPets().add(new PetCard("p1", "石肤兽", "血+2", 0, 2));  // 铁壁当前血 11
 
-        List<MinionCard> legal = List.of(weak, tank);
-        List<Target> targets = legal.stream()
+        List<Target> targets = List.of(weak, tank).stream()
                 .map(m -> new Target(m, GameEngine.currentHealth(foe, m)))
                 .toList();
 
-        assertEquals(weak, ai.chooseAttackTarget(self, foe, legal).orElseThrow(),
-                "旧重载选当前血量最低的随从");
         assertEquals(weak, ai.chooseAttackTarget(GameView.snapshot(self, foe), targets).orElseThrow(),
-                "新重载选当前血量最低的随从");
+                "选当前血量最低的随从");
 
-        // 打脸：没有任何合法随从目标 -> 两个重载都 empty
-        Optional<MinionCard> oldEmpty = ai.chooseAttackTarget(self, foe, List.of());
-        Optional<MinionCard> newEmpty = ai.chooseAttackTarget(GameView.snapshot(self, foe), List.of());
-        assertTrue(oldEmpty.isEmpty(), "旧重载空目标（打脸）应返回 empty");
-        assertTrue(newEmpty.isEmpty(), "新重载空目标（打脸）应返回 empty");
+        // 打脸：没有任何合法随从目标 -> empty
+        Optional<MinionCard> empty =
+                ai.chooseAttackTarget(GameView.snapshot(self, foe), List.of());
+        assertTrue(empty.isEmpty(), "空目标（打脸）应返回 empty");
     }
 
     /** 防作弊 1：GameView 所有公开方法返回类型不得泄露 Deck / PlayerState / Card。 */

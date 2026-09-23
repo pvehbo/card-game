@@ -1,6 +1,8 @@
 package org.example.card.engine;
 
 import org.example.card.ai.SimpleAi;
+import org.example.card.ai.GameView;
+import org.example.card.ai.Target;
 import org.example.card.event.GameEvent;
 import org.example.card.event.GameEventBus;
 import org.example.card.model.Card;
@@ -134,7 +136,7 @@ public class GameEngine {
         if (!canPlaySpell(self)) {
             return false;
         }
-        Optional<SpellCard> spell = ai.chooseSpell(self.getHand(), self, foe);
+        Optional<SpellCard> spell = ai.chooseSpell(GameView.snapshot(self, foe), self.getHand());
         if (spell.isEmpty()) {
             return false;
         }
@@ -198,14 +200,16 @@ public class GameEngine {
         return true;
     }
 
-    /** AI 这次会打谁：空场（Optional.empty）表示打脸。 */
+    /** AI 这次会打谁：空场（Optional.empty）表示打脸。目标血量由引擎算好，AI 只做偏好选择。 */
     public Optional<MinionCard> chooseAiTarget(PlayerState self, PlayerState foe) {
-        List<MinionCard> legalTargets = ActionValidator.legalActions(self, foe).stream()
+        GameView view = GameView.snapshot(self, foe);
+        List<Target> legalTargets = ActionValidator.legalActions(self, foe).stream()
                 .map(ActionValidator.Move::target)
                 .filter(Objects::nonNull)
                 .distinct()
+                .map(t -> new Target(t, CombatResolver.currentHealth(foe, t)))
                 .toList();
-        return ai.chooseAttackTarget(self, foe, legalTargets);
+        return ai.chooseAttackTarget(view, legalTargets);
     }
 
     // ============ 玩家手动回合 ============
