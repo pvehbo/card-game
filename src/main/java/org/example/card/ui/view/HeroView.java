@@ -1,4 +1,6 @@
-package org.example.card.ui;
+package org.example.card.ui.view;
+
+import org.example.card.ui.Assets;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
