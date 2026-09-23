@@ -4,15 +4,18 @@
 
 ![游戏截图](docs/screenshot.png)
 
-## 下载游玩（Windows）
+## 下载游玩
 
 **➡️ [点此下载最新版](https://github.com/pvehbo/card-game/releases/latest)**
 
-下载 `CardGame-<版本>-windows-x64.exe`，双击安装即可开始游戏。
+| 系统 | 文件 | 说明 |
+|---|---|---|
+| Windows 64 位 | `CardGame-<版本>-windows-x64.exe` | 双击安装，桌面和开始菜单会有快捷方式 |
+| macOS | `CardGame-<版本>.dmg` | 拖进应用程序即可 |
+| Linux | `cardgame_<版本>_amd64.deb` | `dpkg -i` 安装 |
 
-- 仅支持 Windows 64 位
 - **已内置运行环境，无需安装 Java**
-- 安装后桌面和开始菜单会有快捷方式
+- 普通推 main 只出 CI artifact；推 `v*` tag 才发 Release（见 `.github/workflows/`）。
 
 ## 玩法规则
 

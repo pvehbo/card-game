@@ -1,0 +1,92 @@
+name: Unix Package
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+# 与 Windows 作业互补：覆盖 macOS / Linux 打包。Windows 包仍由 windows-package.yml 出。
+jobs:
+  build-unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            pkg-type: dmg
+            artifact: CardGame-macos
+          - os: ubuntu-latest
+            pkg-type: deb
+            artifact: CardGame-linux
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # 版本号跟着 tag 走：推送 v1.1.0 就产出 CardGame-1.1.0-<os> 包；普通推 main 用 1.0.0。
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then v="${GITHUB_REF_NAME#v}"; else v="1.0.0"; fi
+          echo "APP_VERSION=$v" >> "$GITHUB_ENV"
+          echo "building version $v (ref=$GITHUB_REF)"
+
+      # 门禁：逻辑测试全绿才往下走（与本地 mvn test 同命令）。
+      - name: Unit tests
+        shell: bash
+        run: mvn -B "-Dmaven.repo.local=.m2repo" test
+
+      - name: Build app jar
+        shell: bash
+        run: mvn -B "-Dmaven.repo.local=.m2repo" package "-DskipTests"
+
+      - name: Collect app + JavaFX jars
+        shell: bash
+        run: |
+          rm -rf target/pkg/input && mkdir -p target/pkg/input
+          mvn -B -q "-Dmaven.repo.local=.m2repo" dependency:copy-dependencies "-DoutputDirectory=target/pkg/input" "-DincludeScope=runtime"
+          cp target/card-game-1.0-SNAPSHOT.jar target/pkg/input/
+          ls target/pkg/input | head -n 20
+
+      - name: Build app image + installer (jpackage)
+        shell: bash
+        run: |
+          rm -rf target/pkg/output && mkdir -p target/pkg/output
+          jpackage --type app-image --name CardGame --app-version "$APP_VERSION" \
+            --input target/pkg/input --main-jar card-game-1.0-SNAPSHOT.jar \
+            --main-class org.example.card.ui.Main --dest target/pkg/output \
+            --java-options "--enable-native-access=ALL-UNNAMED"
+          jpackage --type ${{ matrix.pkg-type }} --name CardGame --app-version "$APP_VERSION" \
+            --input target/pkg/input --main-jar card-game-1.0-SNAPSHOT.jar \
+            --main-class org.example.card.ui.Main --dest target/pkg/output \
+            --java-options "--enable-native-access=ALL-UNNAMED"
+          ls -la target/pkg/output
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/pkg/output/*.*
+
+      # 整局流程冒烟：自动打 5 回合并正常退出。
+      # Linux 无显示服务器，用 xvfb-run；macOS runner 自带窗口服务，直跑。
+      - name: Smoke test (autoplay 5 turns)
+        shell: bash
+        run: |
+          mvn -B -q "-Dmaven.repo.local=.m2repo" dependency:build-classpath "-Dmdep.outputFile=target/cp.txt"
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
+            xvfb-run -a java -Dui.autoplay=5 -cp "target/classes:$(cat target/cp.txt)" org.example.card.ui.Main
+          else
+            java -Dui.autoplay=5 -cp "target/classes:$(cat target/cp.txt)" org.example.card.ui.Main
+          fi
