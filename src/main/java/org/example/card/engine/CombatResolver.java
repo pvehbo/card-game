@@ -3,6 +3,10 @@ package org.example.card.engine;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.example.card.effect.EffectResult;
+import org.example.card.effect.EffectRegistry;
+import org.example.card.effect.GameContext;
+import org.example.card.effect.TriggerSystem;
 import org.example.card.event.GameEvent;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
@@ -67,9 +71,12 @@ public final class CombatResolver {
             // 随从受伤：带上受害者随从，界面才能把飘字/粒子锚在随从身上
             events.add(GameEvent.damage(foe, target, atk, msg));
             events.add(GameEvent.damage(self, attacker, defAtk, msg));
-            removeDead(foe, target, events, logs);
-            if (currentHealth(self, attacker) <= 0) {
-                removeDead(self, attacker, events, logs);
+            if (removeDead(foe, target, events, logs)) {
+                fireDeathTriggers(self, foe, target, events, logs);
+            }
+            if (currentHealth(self, attacker) <= 0
+                    && removeDead(self, attacker, events, logs)) {
+                fireDeathTriggers(self, foe, attacker, events, logs);
             }
         }
         if (foe.isDefeated()) {
@@ -80,52 +87,31 @@ public final class CombatResolver {
         return new Outcome(events, logs);
     }
 
-    /** 法术结算（打出即结算，墓地由调用方收）。 */
-    public static Outcome resolveSpell(SpellCard card, PlayerState self, PlayerState foe) {
-        List<GameEvent> events = new ArrayList<>();
-        List<String> logs = new ArrayList<>();
-        switch (card.getKind()) {
-            case DAMAGE -> {
-                foe.damage(card.getAmount());
-                String msg = "法术：" + card.getName() + " 对敌方英雄 -" + card.getAmount();
-                logs.add(msg);
-                events.add(GameEvent.spell(self, card, card.getAmount(), msg));
-                events.add(GameEvent.damage(foe, card.getAmount(), msg));
-            }
-            case HEAL -> {
-                self.heal(card.getAmount());
-                String msg = "法术：" + card.getName() + " 回复己方英雄 +" + card.getAmount();
-                logs.add(msg);
-                events.add(GameEvent.spell(self, card, card.getAmount(), msg));
-            }
-            case DRAW -> {
-                for (int i = 0; i < card.getAmount(); i++) {
-                    self.getDeck().draw().ifPresentOrElse(
-                            drawn -> {
-                                if (self.getHand().size() >= PlayerState.MAX_HAND) {
-                                    self.getGraveyard().add(drawn);
-                                } else {
-                                    self.getHand().add(drawn);
-                                }
-                            },
-                            () -> {
-                            });
-                }
-                String msg = "法术：" + card.getName() + " 抽 " + card.getAmount() + " 张牌";
-                logs.add(msg);
-                events.add(GameEvent.spell(self, card, card.getAmount(), msg));
-            }
-        }
-        return new Outcome(events, logs);
+    /** 法术结算：查注册表派发（禁止单卡特例分支）。 */
+    public static EffectResult resolveSpell(SpellCard card, PlayerState self, PlayerState foe) {
+        return EffectRegistry.resolve(card, self, foe);
     }
 
-    private static void removeDead(PlayerState owner, MinionCard minion,
-                                   List<GameEvent> events, List<String> logs) {
+    /** 移除阵亡随从；返回是否真的阵亡（供亡语触发判断）。 */
+    private static boolean removeDead(PlayerState owner, MinionCard minion,
+                                      List<GameEvent> events, List<String> logs) {
         if (currentHealth(owner, minion) <= 0 && owner.getField().remove(minion)) {
             owner.getGraveyard().add(minion);
             String msg = minion.getName() + " 阵亡";
             logs.add(msg);
             events.add(GameEvent.death(owner, minion, msg));
+            return true;
+        }
+        return false;
+    }
+
+    /** 亡语派发：紧跟阵亡事件，触发消息同步记日志。 */
+    private static void fireDeathTriggers(PlayerState self, PlayerState foe, MinionCard dead,
+                                          List<GameEvent> events, List<String> logs) {
+        for (GameEvent e : TriggerSystem.fire(TriggerSystem.TriggerPoint.ON_DEATH,
+                new GameContext(self, foe, null, dead))) {
+            logs.add(e.message());
+            events.add(e);
         }
     }
 }

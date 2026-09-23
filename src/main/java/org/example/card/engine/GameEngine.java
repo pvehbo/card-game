@@ -3,6 +3,9 @@ package org.example.card.engine;
 import org.example.card.ai.SimpleAi;
 import org.example.card.ai.GameView;
 import org.example.card.ai.Target;
+import org.example.card.effect.EffectResult;
+import org.example.card.effect.GameContext;
+import org.example.card.effect.TriggerSystem;
 import org.example.card.event.GameEvent;
 import org.example.card.event.GameEventBus;
 import org.example.card.model.Card;
@@ -128,6 +131,7 @@ public class GameEngine {
         String msg = "上场随从：" + minion;
         log.accept(msg);
         eventBus.publish(GameEvent.summon(self, minion, msg));
+        fireSummonTriggers(self, minion, log);
         return true;
     }
 
@@ -241,6 +245,7 @@ public class GameEngine {
         String msg = "你上场了随从：" + minion;
         log.accept(msg);
         eventBus.publish(GameEvent.summon(self, minion, msg));
+        fireSummonTriggers(self, minion, log);
         return true;
     }
 
@@ -306,6 +311,18 @@ public class GameEngine {
 
     // ============ 内部实现 ============
 
+    /**
+     * 战吼派发：紧跟上场事件，触发消息同步记日志。
+     * 上下文暂不带敌方（本方法签名无 foe），触发器实现里 foe 可能为 null。
+     */
+    private void fireSummonTriggers(PlayerState self, MinionCard minion, Consumer<String> log) {
+        for (GameEvent e : TriggerSystem.fire(TriggerSystem.TriggerPoint.ON_SUMMON,
+                new GameContext(self, null, null, minion))) {
+            log.accept(e.message());
+            eventBus.publish(e);
+        }
+    }
+
     private void drawPhase(PlayerState self, Consumer<String> log) {
         self.getDeck().draw().ifPresentOrElse(
                 card -> {
@@ -325,7 +342,7 @@ public class GameEngine {
     }
 
     private void resolveSpell(SpellCard card, PlayerState self, PlayerState foe, Consumer<String> log) {
-        CombatResolver.Outcome outcome = CombatResolver.resolveSpell(card, self, foe);
+        EffectResult outcome = CombatResolver.resolveSpell(card, self, foe);
         outcome.logs().forEach(log);
         outcome.events().forEach(eventBus::publish);
     }
