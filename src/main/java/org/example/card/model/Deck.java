@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 /** 牌堆：洗牌 + 抽卡。抽空返回 Optional.empty()（判负逻辑后续在 engine 里加）。 */
 public class Deck {
@@ -16,6 +17,11 @@ public class Deck {
 
     public void shuffle() {
         Collections.shuffle(cards);
+    }
+
+    /** 带随机源的洗牌（对局用，可测试时固定种子复现）。 */
+    public void shuffle(Random random) {
+        Collections.shuffle(cards, random);
     }
 
     public Optional<Card> draw() {
