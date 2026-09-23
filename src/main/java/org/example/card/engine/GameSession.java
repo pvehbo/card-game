@@ -54,6 +54,13 @@ public final class GameSession {
         return session;
     }
 
+    /** 读档重建（SaveService 用）：状态由调用方备好，这里只装配归属。 */
+    public static GameSession restore(PlayerState player, PlayerState ai, boolean yourTurn) {
+        GameSession session = new GameSession(player, ai, Mode.PVE);
+        session.setYourTurn(yourTurn);
+        return session;
+    }
+
     public PlayerState getPlayer() {
         return player;
     }

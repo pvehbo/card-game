@@ -24,6 +24,13 @@ public class Deck {
         Collections.shuffle(cards, random);
     }
 
+    /** 从牌顶到底的只读视图（存档用，不改牌堆；draw 取尾即取顶）。 */
+    public List<Card> viewFromTop() {
+        List<Card> topFirst = new ArrayList<>(cards);
+        Collections.reverse(topFirst);
+        return Collections.unmodifiableList(topFirst);
+    }
+
     public Optional<Card> draw() {
         if (cards.isEmpty()) {
             return Optional.empty();
