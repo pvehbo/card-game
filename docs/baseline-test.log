@@ -1,0 +1,115 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------------< org.example:card-game >------------------------
+[INFO] Building card-game 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ card-game ---
+[INFO] Copying 2 resources from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ card-game ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ card-game ---
+[INFO] skip non existing resourceDirectory /Users/danghaobo/Java/test/src/test/resources
+[INFO] 
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ card-game ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- surefire:3.5.4:test (default-test) @ card-game ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running org.example.card.engine.BattleDemoTest
+开战！双方 20 生命
+—— 第 1 回合：爱丽丝(AI)（AI）——
+抽卡：+宠物《战鼓兽》(光环:攻+1/血+0)
+上场随从：随从《雷霆巨人》(攻6/血6)
+召唤宠物：宠物《战鼓兽》(光环:攻+1/血+0)（常驻光环）
+回合结束：爱丽丝(AI)(生命20 手牌2 场上1 宠物1 牌堆16) | 鲍勃(AI)(生命20 手牌3 场上0 宠物0 牌堆17)
+—— 第 2 回合：鲍勃(AI)（AI）——
+抽卡：+宠物《石皮兽》(光环:攻+0/血+2)
+法术：治疗之触 回复己方英雄 +4
+召唤宠物：宠物《石皮兽》(光环:攻+0/血+2)（常驻光环）
+回合结束：鲍勃(AI)(生命20 手牌2 场上0 宠物1 牌堆16) | 爱丽丝(AI)(生命20 手牌2 场上1 宠物1 牌堆16)
+—— 第 3 回合：爱丽丝(AI)（AI）——
+抽卡：+随从《幼龙》(攻2/血1)
+上场随从：随从《暗影刺客》(攻4/血2)
+雷霆巨人 直击敌方英雄 -7
+回合结束：爱丽丝(AI)(生命20 手牌2 场上2 宠物1 牌堆15) | 鲍勃(AI)(生命13 手牌2 场上0 宠物1 牌堆16)
+—— 第 4 回合：鲍勃(AI)（AI）——
+抽卡：+随从《雷霆巨人》(攻6/血6)
+上场随从：随从《雷霆巨人》(攻6/血6)
+法术：治疗之触 回复己方英雄 +4
+召唤宠物：宠物《石皮兽》(光环:攻+0/血+2)（常驻光环）
+回合结束：鲍勃(AI)(生命17 手牌0 场上1 宠物2 牌堆15) | 爱丽丝(AI)(生命20 手牌2 场上2 宠物1 牌堆15)
+—— 第 5 回合：爱丽丝(AI)（AI）——
+抽卡：+随从《雷霆巨人》(攻6/血6)
+上场随从：随从《雷霆巨人》(攻6/血6)
+雷霆巨人(7) 与 雷霆巨人(6) 互撞
+雷霆巨人 阵亡
+暗影刺客(5) 与 雷霆巨人(6) 互撞
+雷霆巨人 阵亡
+暗影刺客 阵亡
+回合结束：爱丽丝(AI)(生命20 手牌2 场上1 宠物1 牌堆14) | 鲍勃(AI)(生命17 手牌0 场上0 宠物2 牌堆15)
+—— 第 6 回合：鲍勃(AI)（AI）——
+抽卡：+随从《幼龙》(攻2/血1)
+上场随从：随从《幼龙》(攻2/血1)
+回合结束：鲍勃(AI)(生命17 手牌0 场上1 宠物2 牌堆14) | 爱丽丝(AI)(生命20 手牌2 场上1 宠物1 牌堆14)
+—— 第 7 回合：爱丽丝(AI)（AI）——
+抽卡：+宠物《石皮兽》(光环:攻+0/血+2)
+上场随从：随从《幼龙》(攻2/血1)
+召唤宠物：宠物《石皮兽》(光环:攻+0/血+2)（常驻光环）
+雷霆巨人(7) 与 幼龙(2) 互撞
+幼龙 阵亡
+雷霆巨人 阵亡
+回合结束：爱丽丝(AI)(生命20 手牌1 场上1 宠物2 牌堆13) | 鲍勃(AI)(生命17 手牌0 场上0 宠物2 牌堆14)
+—— 第 8 回合：鲍勃(AI)（AI）——
+抽卡：+宠物《战鼓兽》(光环:攻+1/血+0)
+召唤宠物：宠物《战鼓兽》(光环:攻+1/血+0)（常驻光环）
+回合结束：鲍勃(AI)(生命17 手牌0 场上0 宠物3 牌堆13) | 爱丽丝(AI)(生命20 手牌1 场上1 宠物2 牌堆13)
+—— 第 9 回合：爱丽丝(AI)（AI）——
+抽卡：+宠物《战鼓兽》(光环:攻+1/血+0)
+上场随从：随从《幼龙》(攻2/血1)
+召唤宠物：宠物《战鼓兽》(光环:攻+1/血+0)（常驻光环）
+幼龙 直击敌方英雄 -4
+回合结束：爱丽丝(AI)(生命20 手牌0 场上2 宠物3 牌堆12) | 鲍勃(AI)(生命13 手牌0 场上0 宠物3 牌堆13)
+—— 第 10 回合：鲍勃(AI)（AI）——
+抽卡：+随从《烈焰剑士》(攻3/血3)
+上场随从：随从《烈焰剑士》(攻3/血3)
+回合结束：鲍勃(AI)(生命13 手牌0 场上1 宠物3 牌堆12) | 爱丽丝(AI)(生命20 手牌0 场上2 宠物3 牌堆12)
+—— 第 11 回合：爱丽丝(AI)（AI）——
+抽卡：+法术《治疗之触》(HEAL4)
+法术：治疗之触 回复己方英雄 +4
+幼龙(4) 与 烈焰剑士(4) 互撞
+幼龙 阵亡
+回合结束：爱丽丝(AI)(生命20 手牌0 场上1 宠物3 牌堆11) | 鲍勃(AI)(生命13 手牌0 场上1 宠物3 牌堆12)
+—— 第 12 回合：鲍勃(AI)（AI）——
+抽卡：+随从《风语射手》(攻3/血2)
+上场随从：随从《风语射手》(攻3/血2)
+烈焰剑士(4) 与 幼龙(4) 互撞
+幼龙 阵亡
+烈焰剑士 阵亡
+回合结束：鲍勃(AI)(生命13 手牌0 场上1 宠物3 牌堆11) | 爱丽丝(AI)(生命20 手牌0 场上0 宠物3 牌堆11)
+12 回合打满，按生命判定胜者：爱丽丝(AI)
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.031 s -- in org.example.card.engine.BattleDemoTest
+[INFO] Running org.example.card.engine.AiStepTurnTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in org.example.card.engine.AiStepTurnTest
+[INFO] Running org.example.card.engine.GameEngineTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in org.example.card.engine.GameEngineTest
+[INFO] Running org.example.card.engine.ManualTurnTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in org.example.card.engine.ManualTurnTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 15, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.605 s
+[INFO] Finished at: 2026-09-23T08:54:55+08:00
+[INFO] ------------------------------------------------------------------------
