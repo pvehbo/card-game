@@ -11,15 +11,15 @@ import java.util.Map;
  * 以及 4 位十六进制 unicode 转义）、整数（不含小数/指数）。
  * 严格到拒绝：尾随逗号、重复对象键、未转义控制字符、前导零。
  * 所有语法错误抛 {@link IllegalStateException}，消息格式：文件名:行号:原因。
- * 包内可见：仅供 org.example.card.data 使用，不引入任何第三方依赖。
+ * 跨包复用：service 等包经公开 API 使用，不引入任何第三方依赖。
  */
-final class MiniJson {
+public final class MiniJson {
 
     private MiniJson() {
     }
 
     /** 解析整段 JSON 文本并返回根值（根之外不允许多余内容）。 */
-    static Value parse(String text, String sourceName) {
+    public static Value parse(String text, String sourceName) {
         Parser parser = new Parser(text, sourceName);
         Value root = parser.parseValue();
         parser.skipWhitespace();
@@ -30,7 +30,7 @@ final class MiniJson {
     }
 
     /** JSON 值基类：记录来源文件名与起始行号，供上层组装"文件:行:原因"错误。 */
-    abstract static class Value {
+    public abstract static class Value {
 
         final String source;
         final int line;
@@ -40,49 +40,49 @@ final class MiniJson {
             this.line = line;
         }
 
-        boolean isObject() {
+        public boolean isObject() {
             return this instanceof Obj;
         }
 
-        boolean isArray() {
+        public boolean isArray() {
             return this instanceof Arr;
         }
 
-        boolean isString() {
+        public boolean isString() {
             return this instanceof Str;
         }
 
-        boolean isNumber() {
+        public boolean isNumber() {
             return this instanceof Num;
         }
 
         /** 以"文件名:行号:"为前缀组装错误消息。 */
-        String at(String reason) {
+        public String at(String reason) {
             return source + ":" + line + ":" + reason;
         }
 
-        Obj asObject() {
+        public Obj asObject() {
             if (!(this instanceof Obj)) {
                 throw new IllegalStateException(at("期望对象，实际为" + typeName()));
             }
             return (Obj) this;
         }
 
-        Arr asArray() {
+        public Arr asArray() {
             if (!(this instanceof Arr)) {
                 throw new IllegalStateException(at("期望数组，实际为" + typeName()));
             }
             return (Arr) this;
         }
 
-        Str asString() {
+        public Str asString() {
             if (!(this instanceof Str)) {
                 throw new IllegalStateException(at("期望字符串，实际为" + typeName()));
             }
             return (Str) this;
         }
 
-        Num asNumber() {
+        public Num asNumber() {
             if (!(this instanceof Num)) {
                 throw new IllegalStateException(at("期望整数，实际为" + typeName()));
             }
@@ -107,7 +107,7 @@ final class MiniJson {
     }
 
     /** 对象：字段按出现顺序保存，并记录每个键所在行。 */
-    static final class Obj extends Value {
+    public static final class Obj extends Value {
 
         private final Map<String, Value> fields = new LinkedHashMap<>();
         private final Map<String, Integer> fieldLines = new LinkedHashMap<>();
@@ -121,11 +121,11 @@ final class MiniJson {
             fieldLines.put(key, keyLine);
         }
 
-        boolean contains(String key) {
+        public boolean contains(String key) {
             return fields.containsKey(key);
         }
 
-        Value get(String key) {
+        public Value get(String key) {
             return fields.get(key);
         }
 
@@ -141,7 +141,7 @@ final class MiniJson {
     }
 
     /** 数组：元素按顺序保存。 */
-    static final class Arr extends Value {
+    public static final class Arr extends Value {
 
         private final List<Value> items = new ArrayList<>();
 
@@ -153,17 +153,17 @@ final class MiniJson {
             items.add(value);
         }
 
-        int size() {
+        public int size() {
             return items.size();
         }
 
-        Value get(int index) {
+        public Value get(int index) {
             return items.get(index);
         }
     }
 
     /** 字符串值（已解码转义）。 */
-    static final class Str extends Value {
+    public static final class Str extends Value {
 
         final String value;
 
@@ -172,13 +172,13 @@ final class MiniJson {
             this.value = value;
         }
 
-        String value() {
+        public String value() {
             return value;
         }
     }
 
     /** 整数值。 */
-    static final class Num extends Value {
+    public static final class Num extends Value {
 
         final long value;
 
@@ -187,7 +187,7 @@ final class MiniJson {
             this.value = value;
         }
 
-        long value() {
+        public long value() {
             return value;
         }
     }
