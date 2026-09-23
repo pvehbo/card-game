@@ -1,0 +1,4 @@
+{"schemaVersion": 1, "cards": [
+  {"id": "p1", "name": "战鼓兽", "text": "全员+1 攻", "attackBonus": 1, "healthBonus": 0, "cost": 0, "keywords": []},
+  {"id": "p2", "name": "石皮兽", "text": "全员+2 血", "attackBonus": 0, "healthBonus": 2, "cost": 0, "keywords": []}
+]}

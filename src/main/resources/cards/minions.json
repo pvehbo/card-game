@@ -1,0 +1,8 @@
+{"schemaVersion": 1, "cards": [
+  {"id": "m1", "name": "幼龙", "text": "低攻快攻", "attack": 2, "health": 1, "cost": 0, "keywords": []},
+  {"id": "m2", "name": "铁壁卫士", "text": "高血挡刀", "attack": 1, "health": 5, "cost": 0, "keywords": []},
+  {"id": "m3", "name": "烈焰剑士", "text": "中坚输出", "attack": 3, "health": 3, "cost": 0, "keywords": []},
+  {"id": "m4", "name": "暗影刺客", "text": "先手压制", "attack": 4, "health": 2, "cost": 0, "keywords": []},
+  {"id": "m5", "name": "雷霆巨人", "text": "高攻终结", "attack": 6, "health": 6, "cost": 0, "keywords": []},
+  {"id": "m6", "name": "风语射手", "text": "稳定输出", "attack": 3, "health": 2, "cost": 0, "keywords": []}
+]}

@@ -1,0 +1,4 @@
+{"schemaVersion": 1, "cards": [
+  {"id": "s1", "name": "火球术", "text": "打脸 3", "kind": "DAMAGE", "amount": 3, "cost": 0, "keywords": []},
+  {"id": "s2", "name": "治疗之触", "text": "回 4", "kind": "HEAL", "amount": 4, "cost": 0, "keywords": []}
+]}
