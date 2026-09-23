@@ -74,9 +74,14 @@ public class SimpleAi {
                 .findFirst();
     }
 
-    /** 在“对方当前血量最低”的随从里选目标；对方空场则打脸。 */
-    public Optional<MinionCard> chooseAttackTarget(PlayerState self, PlayerState foe) {
-        return foe.getField().stream()
+    /**
+     * 在合法目标里选“对方当前血量最低”的随从；表空（无可出手随从或对方空场）则打脸。
+     * 调用方（GameEngine.chooseAiTarget）负责从 ActionValidator.legalActions 摘出合法目标，
+     * AI 只做偏好选择，不自己判断合法性。
+     */
+    public Optional<MinionCard> chooseAttackTarget(PlayerState self, PlayerState foe,
+                                                  List<MinionCard> legalTargets) {
+        return legalTargets.stream()
                 .min(Comparator.comparingInt(m -> GameEngine.currentHealth(foe, m)));
     }
 }

@@ -11,6 +11,7 @@ import org.example.card.model.SpellCard;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -107,11 +108,10 @@ public class GameEngine {
 
     /** AI 上场 1 张随从。返回是否真的上了场。 */
     public boolean aiSummon(PlayerState self, Consumer<String> log) {
-        if (self.isMinionPlayed()) {
-            return false;
-        }
-        if (self.getField().size() >= PlayerState.MAX_FIELD) {
-            log.accept("场上已满 7 格，本回合【AI】不上随从");
+        if (!ActionValidator.canPlayMinion(self)) {
+            if (self.getField().size() >= PlayerState.MAX_FIELD) {
+                log.accept("场上已满 7 格，本回合【AI】不上随从");
+            }
             return false;
         }
         Optional<MinionCard> summon = ai.chooseMinion(self.getHand());
@@ -171,7 +171,7 @@ public class GameEngine {
     public List<MinionCard> aiReadyAttackers(PlayerState self) {
         List<MinionCard> ready = new ArrayList<>();
         for (MinionCard m : self.getField()) {
-            if (!m.isSummoningSickness() && !m.isAttackedThisTurn()) {
+            if (ActionValidator.isReadyToAttack(m)) {
                 ready.add(m);
             }
         }
@@ -189,11 +189,7 @@ public class GameEngine {
      */
     public boolean aiStrike(PlayerState self, PlayerState foe, MinionCard attacker,
                             MinionCard target, Consumer<String> log) {
-        if (!self.getField().contains(attacker) || attacker.isSummoningSickness()
-                || attacker.isAttackedThisTurn()) {
-            return false;
-        }
-        if (target != null && !foe.getField().contains(target)) {
+        if (!ActionValidator.canAttack(self, foe, attacker, target)) {
             return false;
         }
         performAttack(self, foe, attacker, target, log);
@@ -203,7 +199,12 @@ public class GameEngine {
 
     /** AI 这次会打谁：空场（Optional.empty）表示打脸。 */
     public Optional<MinionCard> chooseAiTarget(PlayerState self, PlayerState foe) {
-        return ai.chooseAttackTarget(self, foe);
+        List<MinionCard> legalTargets = ActionValidator.legalActions(self, foe).stream()
+                .map(ActionValidator.Move::target)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        return ai.chooseAttackTarget(self, foe, legalTargets);
     }
 
     // ============ 玩家手动回合 ============
@@ -221,7 +222,7 @@ public class GameEngine {
 
     /** 本回合还能上随从、且场上未满 7 格。 */
     public boolean canPlayMinion(PlayerState self) {
-        return !self.isMinionPlayed() && self.getField().size() < PlayerState.MAX_FIELD;
+        return ActionValidator.canPlayMinion(self);
     }
 
     /** 玩家上场一张手牌随从。返回是否成功。 */
@@ -240,7 +241,7 @@ public class GameEngine {
 
     /** 本回合还没打过法术。 */
     public boolean canPlaySpell(PlayerState self) {
-        return !self.isSpellPlayed();
+        return ActionValidator.canPlaySpell(self);
     }
 
     /** 玩家打出一张手牌法术并立即结算。返回是否成功。 */
@@ -257,7 +258,7 @@ public class GameEngine {
 
     /** 本回合还没召唤过宠物。 */
     public boolean canPlayPet(PlayerState self) {
-        return !self.isPetPlayed();
+        return ActionValidator.canPlayPet(self);
     }
 
     /** 玩家召唤一只手牌宠物（常驻光环）。返回是否成功。 */
@@ -280,20 +281,9 @@ public class GameEngine {
      */
     public boolean attack(PlayerState self, PlayerState foe, MinionCard attacker,
                           MinionCard target, Consumer<String> log) {
-        if (!self.getField().contains(attacker)) {
-            log.accept("该随从已不在场上");
-            return false;
-        }
-        if (attacker.isSummoningSickness()) {
-            log.accept(attacker.getName() + " 召唤失调，本回合还不能攻击");
-            return false;
-        }
-        if (attacker.isAttackedThisTurn()) {
-            log.accept(attacker.getName() + " 本回合已经攻击过了");
-            return false;
-        }
-        if (target != null && !foe.getField().contains(target)) {
-            log.accept("攻击目标已不在场上");
+        Optional<String> reason = ActionValidator.rejectReason(self, foe, attacker, target);
+        if (reason.isPresent()) {
+            log.accept(reason.get());
             return false;
         }
         performAttack(self, foe, attacker, target, log);
