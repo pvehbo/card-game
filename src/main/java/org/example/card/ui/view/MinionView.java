@@ -127,6 +127,9 @@ public class MinionView extends StackPane {
         label.getStyleClass().add("badge-value");
         StackPane badge = new StackPane(circle, label);
         badge.setMouseTransparent(true);
+        // 关键：锁死徽章尺寸，否则它会在父 StackPane 里被拉伸填满，
+        // 攻/血两个徽章完全重叠，只能看到最上面那个
+        badge.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
         StackPane.setAlignment(badge, pos);
         boolean left = pos == Pos.BOTTOM_LEFT;
         StackPane.setMargin(badge, left

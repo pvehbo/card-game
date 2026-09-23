@@ -112,6 +112,8 @@ public class CardView extends StackPane {
         costText.setMouseTransparent(true);
         StackPane cost = new StackPane(costCircle, costText);
         cost.setMouseTransparent(true);
+        // 同上：不定死尺寸会被拉伸到整张卡，费用圆就跑到卡中央去了
+        cost.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
         StackPane.setAlignment(cost, Pos.TOP_LEFT);
         StackPane.setMargin(cost, new Insets(-6, 0, 0, -6));
         getChildren().add(cost);
@@ -147,6 +149,8 @@ public class CardView extends StackPane {
         label.getStyleClass().add("badge-value");
         StackPane badge = new StackPane(circle, label);
         badge.setMouseTransparent(true);
+        // 锁死徽章尺寸：父 StackPane 会拉伸无 max 约束的子节点填满容器
+        badge.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
         StackPane.setAlignment(badge, x < 0 ? Pos.BOTTOM_LEFT : Pos.BOTTOM_RIGHT);
         StackPane.setMargin(badge, new Insets(0, x < 0 ? 0 : -5, -5, x < 0 ? -5 : 0));
         return badge;
