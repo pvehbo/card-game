@@ -38,6 +38,7 @@
 在 /Users/danghaobo/Java/test 做基线冻结：
 1. 读 README.md、pom.xml，确认 JDK17+Maven 环境可用。
 2. 跑 mvn test，把完整输出保存到 docs/baseline-test.log（用 mvn test > docs/baseline-test.log 2>&1；仍要在终端确认 BUILD SUCCESS）。
+   日志含本机绝对路径，提交前必须脱敏：`sed -i '' "s|$HOME|~|g" docs/baseline-test.log docs/baseline-autoplay.log`。
 3. 跑 mvn -o dependency:build-classpath -Dmdep.outputFile=target/cp.txt，然后
    java -Dui.autoplay=10 -cp "target/classes:$(cat target/cp.txt)" org.example.card.ui.Main，
    确认控制台输出 10 回合战报且进程正常退出，把战报尾 20 行贴到 docs/baseline-autoplay.log。

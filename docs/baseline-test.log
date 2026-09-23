@@ -12,7 +12,7 @@
 [INFO] Nothing to compile - all classes are up to date
 [INFO] 
 [INFO] --- resources:3.4.0:testResources (default-testResources) @ card-game ---
-[INFO] skip non existing resourceDirectory /Users/danghaobo/Java/test/src/test/resources
+[INFO] skip non existing resourceDirectory ~/Java/test/src/test/resources
 [INFO] 
 [INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ card-game ---
 [INFO] Nothing to compile - all classes are up to date

@@ -1,8 +1,8 @@
 9月 23, 2026 8:55:05 上午 com.sun.javafx.application.PlatformImpl startup
 警告: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @4fcb38dd'
-Can not create cache at /Users/danghaobo/.openjfx/cache/21.0.5+1/aarch64
-Can not create cache at /Users/danghaobo/.openjfx/cache/21.0.5+1/aarch64
-Can not create cache at /Users/danghaobo/.openjfx/cache/21.0.5+1/aarch64
+Can not create cache at ~/.openjfx/cache/21.0.5+1/aarch64
+Can not create cache at ~/.openjfx/cache/21.0.5+1/aarch64
+Can not create cache at ~/.openjfx/cache/21.0.5+1/aarch64
 AUTOPLAY_START turns=10
 [game] 开局：你与 AI 各 3 张手牌，20 生命，无费用；每回合各限 1 随从 + 1 法术 + 1 宠物。
 [game] —— 第 1 回合：AI（AI）——
