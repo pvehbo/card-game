@@ -50,21 +50,22 @@ public class GameEngine {
         return turn;
     }
 
-    /** 宠物光环叠加后的随从攻击。 */
+    /** 宠物光环叠加后的随从攻击（已搬入 CombatResolver，保留兼容）。 */
+    @Deprecated
     public static int effectiveAttack(PlayerState owner, MinionCard minion) {
-        int bonus = owner.getPets().stream().mapToInt(PetCard::getAttackBonus).sum();
-        return minion.getAttack() + bonus;
+        return CombatResolver.effectiveAttack(owner, minion);
     }
 
-    /** 宠物光环叠加后的随从血量上限。 */
+    /** 宠物光环叠加后的随从血量上限（已搬入 CombatResolver，保留兼容）。 */
+    @Deprecated
     public static int effectiveMaxHealth(PlayerState owner, MinionCard minion) {
-        int bonus = owner.getPets().stream().mapToInt(PetCard::getHealthBonus).sum();
-        return minion.getMaxHealth() + bonus;
+        return CombatResolver.effectiveMaxHealth(owner, minion);
     }
 
-    /** 随从当前血量 = 光环上限 - 已受伤害。 */
+    /** 随从当前血量 = 光环上限 - 已受伤害（已搬入 CombatResolver，保留兼容）。 */
+    @Deprecated
     public static int currentHealth(PlayerState owner, MinionCard minion) {
-        return effectiveMaxHealth(owner, minion) - minion.getDamageTaken();
+        return CombatResolver.currentHealth(owner, minion);
     }
 
     // ============ AI 自动回合 ============
@@ -320,80 +321,17 @@ public class GameEngine {
     }
 
     private void resolveSpell(SpellCard card, PlayerState self, PlayerState foe, Consumer<String> log) {
-        switch (card.getKind()) {
-            case DAMAGE -> {
-                foe.damage(card.getAmount());
-                String msg = "法术：" + card.getName() + " 对敌方英雄 -" + card.getAmount();
-                log.accept(msg);
-                eventBus.publish(GameEvent.spell(self, card, card.getAmount(), msg));
-                eventBus.publish(GameEvent.damage(foe, card.getAmount(), msg));
-            }
-            case HEAL -> {
-                self.heal(card.getAmount());
-                String msg = "法术：" + card.getName() + " 回复己方英雄 +" + card.getAmount();
-                log.accept(msg);
-                eventBus.publish(GameEvent.spell(self, card, card.getAmount(), msg));
-            }
-            case DRAW -> {
-                for (int i = 0; i < card.getAmount(); i++) {
-                    self.getDeck().draw().ifPresentOrElse(
-                            drawn -> {
-                                if (self.getHand().size() >= PlayerState.MAX_HAND) {
-                                    self.getGraveyard().add(drawn);
-                                } else {
-                                    self.getHand().add(drawn);
-                                }
-                            },
-                            () -> {
-                            });
-                }
-                String msg = "法术：" + card.getName() + " 抽 " + card.getAmount() + " 张牌";
-                log.accept(msg);
-                eventBus.publish(GameEvent.spell(self, card, card.getAmount(), msg));
-            }
-        }
+        CombatResolver.Outcome outcome = CombatResolver.resolveSpell(card, self, foe);
+        outcome.logs().forEach(log);
+        outcome.events().forEach(eventBus::publish);
     }
 
-    /** 一次攻击/互撞的结算。 */
+    /** 一次攻击/互撞的结算（数学与事件由 CombatResolver 产出，这里只负责发布）。 */
     private void performAttack(PlayerState self, PlayerState foe, MinionCard attacker,
                                MinionCard target, Consumer<String> log) {
-        int atk = effectiveAttack(self, attacker);
-        if (target == null) {
-            foe.damage(atk);
-            String msg = attacker.getName() + " 直击敌方英雄 -" + atk;
-            log.accept(msg);
-            eventBus.publish(GameEvent.attack(self, foe, attacker, null, atk, msg));
-            eventBus.publish(GameEvent.damage(foe, atk, msg));
-        } else {
-            int defAtk = effectiveAttack(foe, target);
-            target.takeDamage(atk);
-            attacker.takeDamage(defAtk);
-            String msg = attacker.getName() + "(" + atk + ") 与 "
-                    + target.getName() + "(" + defAtk + ") 互撞";
-            log.accept(msg);
-            eventBus.publish(GameEvent.attack(self, foe, attacker, target, atk, msg));
-            // 随从受伤：带上受害者随从，界面才能把飘字/粒子锚在随从身上
-            eventBus.publish(GameEvent.damage(foe, target, atk, msg));
-            eventBus.publish(GameEvent.damage(self, attacker, defAtk, msg));
-            removeDead(foe, target, log);
-            if (currentHealth(self, attacker) <= 0) {
-                removeDead(self, attacker, log);
-            }
-        }
-        if (foe.isDefeated()) {
-            String msg = foe.getName() + " 生命归零！";
-            log.accept(msg);
-            eventBus.publish(GameEvent.gameOver(self, msg));
-        }
-    }
-
-    private void removeDead(PlayerState owner, MinionCard minion, Consumer<String> log) {
-        if (currentHealth(owner, minion) <= 0 && owner.getField().remove(minion)) {
-            owner.getGraveyard().add(minion);
-            String msg = minion.getName() + " 阵亡";
-            log.accept(msg);
-            eventBus.publish(GameEvent.death(owner, minion, msg));
-        }
+        CombatResolver.Outcome outcome = CombatResolver.strike(self, foe, attacker, target);
+        outcome.logs().forEach(log);
+        outcome.events().forEach(eventBus::publish);
     }
 
     /** 己方回合结束：解除召唤失调，并清掉「本回合已攻击」标记（下回合才能再出手）。 */
