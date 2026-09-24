@@ -161,4 +161,33 @@ class KeywordMechanicsTest {
         assertTrue(engine.playMinion(self, plain, logs::add));
         assertTrue(plain.isSummoningSickness(), "无冲锋仍有召唤失调");
     }
+
+    /**
+     * 防“卡住”回归：打脸被嘲讽拦下后，本回合出手权必须保留，
+     * 且合法动作表仍能给出嘲讽目标（自动对局靠它推进，不会原地打转）。
+     */
+    @Test
+    void rejectedFaceAttackKeepsActionAndTauntMoveRemains() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard attacker = minion("打手", 3, 3);
+        attacker.setSummoningSickness(false);
+        self.getField().add(attacker);
+        MinionCard wall = minion("城墙", 0, 5, Keyword.TAUNT);
+        foe.getField().add(wall);
+        List<String> logs = new ArrayList<>();
+
+        assertFalse(engine.attack(self, foe, attacker, null, logs::add));
+        assertFalse(attacker.isAttackedThisTurn(), "被拦下不消耗出手权");
+
+        List<ActionValidator.Move> moves = ActionValidator.legalActions(self, foe);
+        assertEquals(1, moves.size());
+        assertEquals(wall, moves.get(0).target());
+
+        // 顺着合法动作打出去，终局能推进
+        assertTrue(engine.attack(self, foe, moves.get(0).attacker(), moves.get(0).target(),
+                logs::add));
+        assertTrue(attacker.isAttackedThisTurn());
+    }
 }

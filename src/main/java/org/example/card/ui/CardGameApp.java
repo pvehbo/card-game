@@ -28,6 +28,7 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.example.card.ai.SimpleAi;
+import org.example.card.engine.ActionValidator;
 import org.example.card.engine.GameEngine;
 import org.example.card.engine.GameSession;
 import org.example.card.engine.TurnController;
@@ -50,6 +51,7 @@ import org.example.card.ui.viewmodel.BoardViewModel;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 /**
@@ -560,6 +562,13 @@ public class CardGameApp extends Application {
             return;
         }
         vm.clearSelection();
+        // 先验合法：不合法直接提示，不播突刺动画（比如嘲讽在场时点错目标）
+        Optional<String> illegal = illegalAttack(attacker, target);
+        if (illegal.isPresent()) {
+            log(illegal.get());
+            refresh();
+            return;
+        }
         playAttack(attacker, boardView.findMinionNode(target), () -> {
             engine.attack(player, ai, attacker, target, this::log);
             checkGameOver();
@@ -573,12 +582,27 @@ public class CardGameApp extends Application {
             return;
         }
         vm.clearSelection();
+        // 先验合法：嘲讽在场时打脸会被拦，直接提示不清突刺动画
+        Optional<String> illegal = illegalAttack(attacker, null);
+        if (illegal.isPresent()) {
+            log(illegal.get());
+            refresh();
+            return;
+        }
         Node heroNode = boardView.aiHeroPortrait();
         playAttack(attacker, heroNode, () -> {
             engine.attack(player, ai, attacker, null, this::log);
             checkGameOver();
             refresh();
         });
+    }
+
+    /** 预检：返回“为什么打不了”，为空表示合法（与结算共用 ActionValidator）。 */
+    private Optional<String> illegalAttack(MinionCard attacker, MinionCard target) {
+        if (player == null || ai == null) {
+            return Optional.of("对局尚未开始");
+        }
+        return ActionValidator.rejectReason(player, ai, attacker, target);
     }
 
     /** 播放攻击动效（突刺 → 撞击反馈 → 结算）。 */
@@ -885,13 +909,18 @@ public class CardGameApp extends Application {
                 return;
             }
         }
-        for (MinionCard m : new ArrayList<>(player.getField())) {
-            if (!m.isSummoningSickness() && !m.isAttackedThisTurn()) {
-                vm.selectAttacker(m);
+        // 攻击：走合法动作表（有嘲讽时打嘲讽，不无脑打脸，避免被拦后原地打转）
+        List<ActionValidator.Move> moves = ActionValidator.legalActions(player, ai);
+        if (!moves.isEmpty()) {
+            ActionValidator.Move move = moves.get(0);
+            vm.selectAttacker(move.attacker());
+            if (move.isFaceHit()) {
                 attackHero();
-                scheduleAutoplayStep(AUTOPLAY_GAP);
-                return;
+            } else {
+                attack(move.target());
             }
+            scheduleAutoplayStep(AUTOPLAY_GAP);
+            return;
         }
         autoplayTurnsLeft--;
         if (autoplayTurnsLeft <= 0) {
