@@ -141,7 +141,7 @@ class AiStrategyTest {
         assertEquals(5, view.foeMinions().get(0).currentHealth());
 
         assertThrows(UnsupportedOperationException.class,
-                () -> view.foeMinions().add(new GameView.MinionInfo("丙", 1)),
+                () -> view.foeMinions().add(new GameView.MinionInfo("丙", 1, 1, false)),
                 "getter 不应暴露可变集合");
     }
 

@@ -1,6 +1,6 @@
 package org.example.card.engine;
 
-import org.example.card.ai.SimpleAi;
+import org.example.card.ai.AiStrategy;
 import org.example.card.ai.GameView;
 import org.example.card.ai.Target;
 import org.example.card.effect.EffectResult;
@@ -39,11 +39,16 @@ import java.util.function.Consumer;
  */
 public class GameEngine {
 
-    private final SimpleAi ai;
+    private AiStrategy ai;
     private final GameEventBus eventBus = new GameEventBus();
     private int turn;
 
-    public GameEngine(SimpleAi ai) {
+    public GameEngine(AiStrategy ai) {
+        this.ai = ai;
+    }
+
+    /** 切换 AI 策略（一局内可换，难度选择用）。 */
+    public void setAiStrategy(AiStrategy ai) {
         this.ai = ai;
     }
 

@@ -27,6 +27,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import org.example.card.ai.AiLevel;
 import org.example.card.ai.SimpleAi;
 import org.example.card.engine.ActionValidator;
 import org.example.card.engine.GameEngine;
@@ -134,6 +135,18 @@ public class CardGameApp extends Application {
         statusLabel.getStyleClass().add("status-banner");
         pileLabel.getStyleClass().add("pile-info");
 
+        // AI 难度：一局内可切换（诊断可用 -Dai.level=easy|normal|hard 预设）
+        javafx.scene.control.ComboBox<String> levelBox = new javafx.scene.control.ComboBox<>();
+        for (AiLevel level : AiLevel.values()) {
+            levelBox.getItems().add(level.label());
+        }
+        levelBox.setValue(AiLevel.NORMAL.label());
+        levelBox.setOnAction(e -> {
+            AiLevel selected = AiLevel.values()[Math.max(0, levelBox.getSelectionModel().getSelectedIndex())];
+            engine.setAiStrategy(selected.newAi());
+            log("AI 难度切换为：" + selected.label());
+        });
+
         // ---- 对手区 ----
         VBox aiZone = new VBox(6);
         aiZone.getStyleClass().add("panel");
@@ -154,7 +167,8 @@ public class CardGameApp extends Application {
         handBox.setMinHeight(CardView.HEIGHT + 16);
         handZone.getChildren().add(handBox);
 
-        HBox controls = new HBox(12, startButton, endTurnButton, soundButton, statusLabel, pileLabel);
+        HBox controls = new HBox(12, startButton, endTurnButton, soundButton, levelBox,
+                statusLabel, pileLabel);
         controls.setAlignment(Pos.CENTER_LEFT);
         controls.setPadding(new Insets(6, 4, 0, 4));
 
@@ -324,6 +338,8 @@ public class CardGameApp extends Application {
         session.nextGeneration();
         engine = new GameEngine(new SimpleAi());
         controller = new TurnController(engine);
+        // 诊断开关：-Dai.level=easy|normal|hard 预设 AI 难度（默认普通）
+        engine.setAiStrategy(AiLevel.fromId(System.getProperty("ai.level")).newAi());
         player = session.getPlayer();
         ai = session.getAi();
         // 截图模式下固定玩家先手，且不触发 AI 自动回合（否则会覆盖演示局面）
