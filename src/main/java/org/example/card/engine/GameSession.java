@@ -3,6 +3,7 @@ package org.example.card.engine;
 import java.util.Random;
 
 import org.example.card.data.CardDatabase;
+import org.example.card.model.Card;
 import org.example.card.model.Deck;
 import org.example.card.model.PlayerState;
 
@@ -42,8 +43,16 @@ public final class GameSession {
 
     /** 新开一局 PvE：标准牌堆、洗牌、双方各摸 {@value #OPENING_HAND} 张。 */
     public static GameSession newPveBattle(Random random) {
-        PlayerState player = new PlayerState("你", new Deck(CardDatabase.standardDeck()));
-        PlayerState ai = new PlayerState("AI", new Deck(CardDatabase.standardDeck()));
+        return newPveBattle(random, CardDatabase.standardDeck());
+    }
+
+    /**
+     * 新开一局 PvE（自定义玩家牌堆，须 30 张合法，调用方用 DeckBuilder 保证；
+     * AI 永远标准牌堆）。牌按实例再拷一份，会话独占。
+     */
+    public static GameSession newPveBattle(Random random, java.util.List<Card> playerCards) {
+        PlayerState player = new PlayerState("你", new Deck(copyOf(playerCards)));
+        PlayerState ai = new PlayerState("AI", new Deck(copyOf(CardDatabase.standardDeck())));
         player.getDeck().shuffle(random);
         ai.getDeck().shuffle(random);
         GameSession session = new GameSession(player, ai, Mode.PVE);
@@ -52,6 +61,14 @@ public final class GameSession {
             ai.getDeck().draw().ifPresent(ai.getHand()::add);
         }
         return session;
+    }
+
+    private static java.util.List<Card> copyOf(java.util.List<Card> cards) {
+        java.util.List<Card> copies = new java.util.ArrayList<>();
+        for (Card card : cards) {
+            copies.add(card.copy());
+        }
+        return copies;
     }
 
     /** 读档重建（SaveService 用）：状态由调用方备好，这里只装配归属。 */

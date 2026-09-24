@@ -49,8 +49,10 @@ import org.example.card.ui.fx.Fx;
 import org.example.card.ui.fx.ParticleLayer;
 import org.example.card.ui.fx.Sfx;
 import org.example.card.ui.fx.SoundEngine;
+import org.example.card.data.DeckBuilder;
 import org.example.card.ui.view.BoardView;
 import org.example.card.ui.view.CardView;
+import org.example.card.ui.view.DeckBuilderView;
 import org.example.card.ui.viewmodel.BoardViewModel;
 
 import java.util.ArrayList;
@@ -93,6 +95,8 @@ public class CardGameApp extends Application {
     private final ConfigService config = new ConfigService();
     /** 当前 AI 难度（读档重建引擎时沿用）。 */
     private AiLevel aiLevel = AiLevel.NORMAL;
+    /** 自定义牌组 id 表（null/空 = 标准牌堆；构筑窗口写入，配置落盘）。 */
+    private List<String> customDeckIds;
     private javafx.scene.control.ComboBox<String> levelBox;
     /** 对局记录器（回合快照 + 事件流，回放与“上次对局”文件都从这里来）。 */
     private ReplayRecorder recorder = new ReplayRecorder();
@@ -126,6 +130,9 @@ public class CardGameApp extends Application {
         // 用户配置先行：音效开关读盘（文件缺失/损坏则用默认值，不影响启动）
         config.load();
         SoundEngine.setEnabled(config.isSoundEnabled());
+        String savedDeck = config.getDeckIds();
+        customDeckIds = savedDeck == null || savedDeck.isBlank() ? null
+                : new ArrayList<>(List.of(savedDeck.split(",")));
         logArea.setEditable(false);
         logArea.setWrapText(true);
         logArea.getStyleClass().add("log-view");
@@ -196,6 +203,10 @@ public class CardGameApp extends Application {
         replayButton.getStyleClass().add("btn");
         replayButton.setOnAction(e -> enterReplay());
 
+        Button deckButton = new Button("构筑");
+        deckButton.getStyleClass().add("btn");
+        deckButton.setOnAction(e -> openDeckBuilder());
+
         // 回放控制条（平时隐藏）：上一步 / 播放暂停 / 下一步 / 退出回放
         Button prevButton = new Button("上一步");
         replayPlayButton = new Button("播放");
@@ -215,7 +226,7 @@ public class CardGameApp extends Application {
         replayBar.setManaged(false);
 
         HBox controls = new HBox(12, startButton, endTurnButton, soundButton, levelBox,
-                loadButton, replayButton, statusLabel, pileLabel);
+                loadButton, replayButton, deckButton, statusLabel, pileLabel);
         controls.setAlignment(Pos.CENTER_LEFT);
         controls.setPadding(new Insets(6, 4, 0, 4));
 
@@ -379,11 +390,45 @@ public class CardGameApp extends Application {
         log("选中 烈焰剑士，点击对方随从或英雄头像进行攻击");
     }
 
+    /** 打开构筑窗口：完成后校验合法才收下并落盘，下局开局生效。 */
+    private void openDeckBuilder() {
+        DeckBuilderView.show(handBox.getScene() != null ? handBox.getScene().getWindow() : null,
+                customDeckIds, ids -> {
+                    customDeckIds = new ArrayList<>(ids);
+                    config.setDeckIds(String.join(",", customDeckIds));
+                    config.save();
+                    log("牌组已更新（" + customDeckIds.size() + " 张），下局开局生效。");
+                });
+    }
+
+    /** 解析自定义牌组：合法返回牌表，否则 null（用标准并提示）。 */
+    private List<Card> resolveCustomDeck() {
+        if (customDeckIds == null || customDeckIds.isEmpty()) {
+            return null;
+        }
+        try {
+            DeckBuilder builder = new DeckBuilder();
+            builder.loadIds(new ArrayList<>(customDeckIds));
+            Optional<String> reason = builder.validate();
+            if (reason.isPresent()) {
+                log("自定义牌组非法（" + reason.get() + "），改用标准牌堆。");
+                return null;
+            }
+            return builder.build();
+        } catch (IllegalStateException ex) {
+            log("自定义牌组损坏（" + ex.getMessage() + "），改用标准牌堆。");
+            return null;
+        }
+    }
+
     /** 新游戏：初始化双方牌堆、手牌，随机先后手。 */
     private void startNewGame() {
         stopReplayUi();
         recorder.clear();
-        session = GameSession.newPveBattle(RANDOM);
+        List<Card> customDeck = resolveCustomDeck();
+        session = customDeck == null
+                ? GameSession.newPveBattle(RANDOM)
+                : GameSession.newPveBattle(RANDOM, customDeck);
         session.nextGeneration();
         engine = new GameEngine(new SimpleAi());
         controller = new TurnController(engine);
