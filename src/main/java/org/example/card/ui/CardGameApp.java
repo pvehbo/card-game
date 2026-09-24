@@ -41,7 +41,10 @@ import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
 import org.example.card.model.SpellCard;
 import org.example.card.service.ConfigService;
+import org.example.card.service.GameLog;
 import org.example.card.service.I18n;
+import org.example.card.service.ReplayRecorder;
+import org.example.card.service.SaveService;
 import org.example.card.ui.fx.Fx;
 import org.example.card.ui.fx.ParticleLayer;
 import org.example.card.ui.fx.Sfx;
@@ -88,6 +91,23 @@ public class CardGameApp extends Application {
     private Button soundButton;
     /** 用户配置（音效开关等，启动时读盘、切换时落盘）。 */
     private final ConfigService config = new ConfigService();
+    /** 当前 AI 难度（读档重建引擎时沿用）。 */
+    private AiLevel aiLevel = AiLevel.NORMAL;
+    private javafx.scene.control.ComboBox<String> levelBox;
+    /** 对局记录器（回合快照 + 事件流，回放与“上次对局”文件都从这里来）。 */
+    private ReplayRecorder recorder = new ReplayRecorder();
+    private static final java.nio.file.Path AUTOSAVE_FILE =
+            org.example.card.service.UserData.file("autosave.json");
+    private static final java.nio.file.Path LAST_REPLAY_FILE =
+            org.example.card.service.UserData.file("last-replay.txt");
+    /** 回放态：暂存的实况会话、当前帧、播放开关。 */
+    private boolean replaying;
+    private int replayIndex;
+    private boolean replayPlaying;
+    private javafx.animation.PauseTransition replayTimer;
+    private HBox replayBar;
+    private Button replayPlayButton;
+    private GameSession stashedSession;
 
     private String soundLabel() {
         return I18n.get(SoundEngine.isEnabled() ? "sound.on" : "sound.off");
@@ -136,13 +156,14 @@ public class CardGameApp extends Application {
         pileLabel.getStyleClass().add("pile-info");
 
         // AI 难度：一局内可切换（诊断可用 -Dai.level=easy|normal|hard 预设）
-        javafx.scene.control.ComboBox<String> levelBox = new javafx.scene.control.ComboBox<>();
+        levelBox = new javafx.scene.control.ComboBox<>();
         for (AiLevel level : AiLevel.values()) {
             levelBox.getItems().add(level.label());
         }
-        levelBox.setValue(AiLevel.NORMAL.label());
+        levelBox.setValue(aiLevel.label());
         levelBox.setOnAction(e -> {
             AiLevel selected = AiLevel.values()[Math.max(0, levelBox.getSelectionModel().getSelectedIndex())];
+            aiLevel = selected;
             engine.setAiStrategy(selected.newAi());
             log("AI 难度切换为：" + selected.label());
         });
@@ -167,8 +188,34 @@ public class CardGameApp extends Application {
         handBox.setMinHeight(CardView.HEIGHT + 16);
         handZone.getChildren().add(handBox);
 
+        Button loadButton = new Button("读档");
+        loadButton.getStyleClass().add("btn");
+        loadButton.setOnAction(e -> loadGame());
+
+        Button replayButton = new Button("回放");
+        replayButton.getStyleClass().add("btn");
+        replayButton.setOnAction(e -> enterReplay());
+
+        // 回放控制条（平时隐藏）：上一步 / 播放暂停 / 下一步 / 退出回放
+        Button prevButton = new Button("上一步");
+        replayPlayButton = new Button("播放");
+        Button nextButton = new Button("下一步");
+        Button exitReplayButton = new Button("退出回放");
+        for (Button b : new Button[]{prevButton, replayPlayButton, nextButton, exitReplayButton}) {
+            b.getStyleClass().add("btn");
+        }
+        prevButton.setOnAction(e -> stepReplay(-1));
+        replayPlayButton.setOnAction(e -> toggleReplayPlay());
+        nextButton.setOnAction(e -> stepReplay(1));
+        exitReplayButton.setOnAction(e -> exitReplay());
+        replayBar = new HBox(12, prevButton, replayPlayButton, nextButton, exitReplayButton);
+        replayBar.setAlignment(Pos.CENTER_LEFT);
+        replayBar.setPadding(new Insets(6, 4, 0, 4));
+        replayBar.setVisible(false);
+        replayBar.setManaged(false);
+
         HBox controls = new HBox(12, startButton, endTurnButton, soundButton, levelBox,
-                statusLabel, pileLabel);
+                loadButton, replayButton, statusLabel, pileLabel);
         controls.setAlignment(Pos.CENTER_LEFT);
         controls.setPadding(new Insets(6, 4, 0, 4));
 
@@ -178,7 +225,7 @@ public class CardGameApp extends Application {
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(10));
         root.setTop(new VBox(8, aiZone, boardZone));
-        root.setCenter(new VBox(8, logArea, controls));
+        root.setCenter(new VBox(8, logArea, controls, replayBar));
         root.setBottom(new VBox(8, handZone, playerZone));
 
         // 场景根用 StackPane，便于叠加横幅与伤害飘字
@@ -334,12 +381,16 @@ public class CardGameApp extends Application {
 
     /** 新游戏：初始化双方牌堆、手牌，随机先后手。 */
     private void startNewGame() {
+        stopReplayUi();
+        recorder.clear();
         session = GameSession.newPveBattle(RANDOM);
         session.nextGeneration();
         engine = new GameEngine(new SimpleAi());
         controller = new TurnController(engine);
         // 诊断开关：-Dai.level=easy|normal|hard 预设 AI 难度（默认普通）
-        engine.setAiStrategy(AiLevel.fromId(System.getProperty("ai.level")).newAi());
+        aiLevel = AiLevel.fromId(System.getProperty("ai.level"));
+        levelBox.setValue(aiLevel.label());
+        engine.setAiStrategy(aiLevel.newAi());
         player = session.getPlayer();
         ai = session.getAi();
         // 截图模式下固定玩家先手，且不触发 AI 自动回合（否则会覆盖演示局面）
@@ -349,10 +400,15 @@ public class CardGameApp extends Application {
         boardView.reset();
         announcedOver = false;
         subscribeEvents();
+        engine.eventBus().onAny(e -> recorder.recordEvent(e));
         logArea.clear();
         log("开局：你与 AI 各 3 张手牌，20 生命，无费用；每回合各限 1 随从 + 1 法术 + 1 宠物。");
         endTurnButton.setDisable(false);
         controller.openGame(session, screenshotMode || RANDOM.nextBoolean(), this::log, screenshotMode);
+        if (!screenshotMode) {
+            recorder.captureTurn(session);
+            autosave();
+        }
         if (yourTurn()) {
             statusLabel.setText("你的回合 · 请出牌");
         } else {
@@ -734,9 +790,194 @@ public class CardGameApp extends Application {
         if (!gameOver()) {
             controller.openPlayerTurn(session, this::log);
             statusLabel.setText("你的回合 · 请出牌");
+            recorder.captureTurn(session);
+            autosave();
         }
         vm.clearSelection();
         refresh();
+    }
+
+    // ============ 存档 / 读档 / 回放（B-6） ============
+
+    /** 自动存档：每个玩家回合开局存一次（回放态/空会话不写，绝不炸流程）。 */
+    private void autosave() {
+        if (replaying || session == null) {
+            return;
+        }
+        try {
+            java.nio.file.Files.createDirectories(AUTOSAVE_FILE.getParent());
+            java.nio.file.Files.writeString(AUTOSAVE_FILE, SaveService.save(session));
+        } catch (Exception ex) {
+            GameLog.warn("自动存档失败: " + ex.getMessage());
+        }
+    }
+
+    /** 读档续玩：用自动存档重建对局（回合计数从当前引擎继续）。 */
+    private void loadGame() {
+        if (replaying || isAutoplay()) {
+            return;
+        }
+        if (!java.nio.file.Files.isRegularFile(AUTOSAVE_FILE)) {
+            log("暂无存档（打完一个玩家回合会自动存档）。");
+            return;
+        }
+        try {
+            GameSession loaded = SaveService.load(
+                    java.nio.file.Files.readString(AUTOSAVE_FILE));
+            stopReplayUi();
+            recorder.clear();
+            loaded.nextGeneration();
+            session = loaded;
+            engine = new GameEngine(aiLevel.newAi());
+            controller = new TurnController(engine);
+            player = session.getPlayer();
+            ai = session.getAi();
+            vm.attach(session, engine);
+            director.attach(engine);
+            boardView.reset();
+            announcedOver = false;
+            subscribeEvents();
+            engine.eventBus().onAny(e -> recorder.recordEvent(e));
+            recorder.captureTurn(session);
+            logArea.clear();
+            log("已读档，祝好运。");
+            endTurnButton.setDisable(false);
+            if (session.isYourTurn()) {
+                statusLabel.setText("你的回合 · 请出牌");
+            } else {
+                statusLabel.setText("AI 回合…");
+                runAiTurn();
+            }
+            refresh();
+        } catch (Exception ex) {
+            log("读档失败：" + ex.getMessage());
+        }
+    }
+
+    private boolean isAutoplay() {
+        return System.getProperty("ui.autoplay") != null;
+    }
+
+    /** 进入回放：只能在你的回合且 AI 演完后进；实况暂存，退出时原样恢复。 */
+    private void enterReplay() {
+        if (replaying || isAutoplay() || session == null) {
+            return;
+        }
+        if (!yourTurn() || director.hasPendingSteps()) {
+            log("回放请在你的回合、AI 演完后进入。");
+            return;
+        }
+        if (recorder.turns() == 0) {
+            recorder = ReplayRecorder.loadFromFile(LAST_REPLAY_FILE);
+            engine.eventBus().onAny(e -> recorder.recordEvent(e));
+            if (recorder.turns() == 0) {
+                log("暂无可回放对局（打完一局会自动记录）。");
+                return;
+            }
+            log("正在回放上次对局。");
+        }
+        stashedSession = session;
+        replaying = true;
+        replayIndex = recorder.turns() - 1;
+        director.clear();
+        endTurnButton.setDisable(true);
+        replayBar.setVisible(true);
+        replayBar.setManaged(true);
+        showReplay(replayIndex);
+    }
+
+    /** 展示第 i 个回合开局（只读：强制非玩家回合，输入全部被门禁拦下）。 */
+    private void showReplay(int index) {
+        if (!replaying) {
+            return;
+        }
+        replayIndex = Math.max(0, Math.min(index, recorder.turns() - 1));
+        session = recorder.snapshot(replayIndex);
+        session.setYourTurn(false);
+        player = session.getPlayer();
+        ai = session.getAi();
+        vm.attach(session, engine);
+        boardView.reset();
+        refresh();
+        statusLabel.setText("回放 " + (replayIndex + 1) + "/" + recorder.turns());
+    }
+
+    private void stepReplay(int delta) {
+        if (!replaying) {
+            return;
+        }
+        setReplayPlaying(false);
+        showReplay(replayIndex + delta);
+    }
+
+    private void toggleReplayPlay() {
+        if (!replaying) {
+            return;
+        }
+        setReplayPlaying(!replayPlaying);
+        if (replayPlaying) {
+            scheduleReplayAdvance();
+        }
+    }
+
+    private void setReplayPlaying(boolean playing) {
+        replayPlaying = playing;
+        replayPlayButton.setText(playing ? "暂停" : "播放");
+        if (!playing && replayTimer != null) {
+            replayTimer.stop();
+        }
+    }
+
+    private void scheduleReplayAdvance() {
+        if (!replaying || !replayPlaying) {
+            return;
+        }
+        replayTimer = new javafx.animation.PauseTransition(javafx.util.Duration.seconds(1.2));
+        replayTimer.setOnFinished(e -> {
+            if (!replaying || !replayPlaying) {
+                return;
+            }
+            if (replayIndex >= recorder.turns() - 1) {
+                setReplayPlaying(false);
+                return;
+            }
+            showReplay(replayIndex + 1);
+            scheduleReplayAdvance();
+        });
+        replayTimer.play();
+    }
+
+    /** 退出回放：恢复暂存的实况（引用未被回放改动过，直接接回）。 */
+    private void exitReplay() {
+        if (!replaying) {
+            return;
+        }
+        setReplayPlaying(false);
+        replaying = false;
+        replayBar.setVisible(false);
+        replayBar.setManaged(false);
+        if (stashedSession != null) {
+            session = stashedSession;
+            stashedSession = null;
+            player = session.getPlayer();
+            ai = session.getAi();
+            vm.attach(session, engine);
+            boardView.reset();
+            endTurnButton.setDisable(false);
+            statusLabel.setText("你的回合 · 请出牌");
+            refresh();
+        }
+    }
+
+    /** 开新局/读档前调用：收起回放 UI（不碰实况）。 */
+    private void stopReplayUi() {
+        setReplayPlaying(false);
+        replaying = false;
+        stashedSession = null;
+        if (replayBar != null) {
+            replayBar.setVisible(false);
+            replayBar.setManaged(false);
+        }
     }
 
     /** 是否轮到玩家输入（问 ViewModel）。 */
@@ -754,6 +995,12 @@ public class CardGameApp extends Application {
             return;
         }
         announcedOver = true;
+        // 整局记录落盘，供“回放上次对局”用
+        try {
+            recorder.saveToFile(LAST_REPLAY_FILE);
+        } catch (RuntimeException ex) {
+            GameLog.warn("保存回放失败: " + ex.getMessage());
+        }
         endTurnButton.setDisable(true);
         if (won) {
             log("胜利！敌方英雄被击溃。");
@@ -907,6 +1154,11 @@ public class CardGameApp extends Application {
     private void autoplayStep() {
         if (player == null || ai == null || gameOver()) {
             finishAutoplay("game-over");
+            return;
+        }
+        // 回放态不属于对局：等用户退出回放
+        if (replaying) {
+            scheduleAutoplayStep(AUTOPLAY_GAP);
             return;
         }
         if (++autoplaySteps > AUTOPLAY_STEP_CAP) {

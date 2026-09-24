@@ -13,19 +13,21 @@ import java.util.Properties;
  */
 public final class ConfigService {
 
-    private static final Path CONFIG_FILE = Path.of(
-            System.getProperty("user.home"), ".cardgame", "config.properties");
+    private static Path configFile() {
+        return UserData.file("config.properties");
+    }
 
     private boolean soundEnabled = true;
     private String aiLevel = "normal";
     private int aiStepGapMs = 420;
 
     public void load() {
-        if (!Files.isRegularFile(CONFIG_FILE)) {
+        Path configFile = configFile();
+        if (!Files.isRegularFile(configFile)) {
             return;
         }
         Properties props = new Properties();
-        try (InputStream in = Files.newInputStream(CONFIG_FILE)) {
+        try (InputStream in = Files.newInputStream(configFile)) {
             props.load(in);
             soundEnabled = Boolean.parseBoolean(props.getProperty("sound.enabled", "true"));
             aiLevel = props.getProperty("ai.level", "normal");
@@ -41,8 +43,9 @@ public final class ConfigService {
         props.setProperty("ai.level", aiLevel);
         props.setProperty("ai.stepGapMs", Integer.toString(aiStepGapMs));
         try {
-            Files.createDirectories(CONFIG_FILE.getParent());
-            try (OutputStream out = Files.newOutputStream(CONFIG_FILE)) {
+            Path configFile = configFile();
+            Files.createDirectories(configFile.getParent());
+            try (OutputStream out = Files.newOutputStream(configFile)) {
                 props.store(out, "CardGame config");
             }
         } catch (IOException | SecurityException ex) {

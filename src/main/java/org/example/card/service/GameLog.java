@@ -13,8 +13,9 @@ import java.time.format.DateTimeFormatter;
  */
 public final class GameLog {
 
-    private static final Path LOG_FILE = Path.of(
-            System.getProperty("user.home"), ".cardgame", "game.log");
+    private static Path logFile() {
+        return UserData.file("game.log");
+    }
     private static final DateTimeFormatter TIME =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -33,8 +34,9 @@ public final class GameLog {
         String line = TIME.format(LocalDateTime.now()) + " [" + level + "] " + message
                 + System.lineSeparator();
         try {
-            Files.createDirectories(LOG_FILE.getParent());
-            Files.writeString(LOG_FILE, line,
+            Path logFile = logFile();
+            Files.createDirectories(logFile.getParent());
+            Files.writeString(logFile, line,
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException | SecurityException ex) {
             System.err.println("[GameLog 写入失败] " + ex.getMessage());
