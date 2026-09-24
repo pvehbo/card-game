@@ -26,8 +26,8 @@ class SessionTest {
         assertEquals(GameSession.Mode.PVE, session.getMode());
         assertEquals(3, session.getPlayer().getHand().size());
         assertEquals(3, session.getAi().getHand().size());
-        assertEquals(17, session.getPlayer().getDeck().size(), "20 张标准牌堆摸 3 剩 17");
-        assertEquals(17, session.getAi().getDeck().size());
+        assertEquals(25, session.getPlayer().getDeck().size(), "28 张标准牌堆摸 3 剩 25");
+        assertEquals(25, session.getAi().getDeck().size());
         assertEquals(PlayerState.START_LIFE, session.getPlayer().getLifePoints());
         assertEquals(0, session.getGeneration());
         assertFalse(session.gameOver());

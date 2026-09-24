@@ -33,6 +33,9 @@ public abstract class Card {
     /** 费用（v1 老卡全 0；B-1 起结算与置灰都认它）。 */
     public abstract int getCost();
 
+    /** 全新实例拷贝（同模板，不同状态；组牌堆/读档用，避免实例共享受伤标记）。 */
+    public abstract Card copy();
+
     @Override
     public String toString() {
         return typeName() + "《" + name + "》";

@@ -115,7 +115,11 @@ public class GameEngine {
 
     /** AI 上场 1 张随从。返回是否真的上了场。 */
     public boolean aiSummon(PlayerState self, Consumer<String> log) {
-        Optional<MinionCard> summon = ai.chooseMinion(self.getHand());
+        // 只在买得起的随从里选（买不起直接跳过，不占出牌次数）
+        List<Card> affordable = self.getHand().stream()
+                .filter(c -> !(c instanceof MinionCard) || self.canAfford(c.getCost()))
+                .toList();
+        Optional<MinionCard> summon = ai.chooseMinion(affordable);
         if (summon.isEmpty()) {
             return false;
         }
@@ -164,7 +168,10 @@ public class GameEngine {
         if (!canPlayPet(self)) {
             return false;
         }
-        Optional<PetCard> pet = ai.choosePet(self.getHand());
+        List<Card> affordable = self.getHand().stream()
+                .filter(c -> !(c instanceof PetCard) || self.canAfford(c.getCost()))
+                .toList();
+        Optional<PetCard> pet = ai.choosePet(affordable);
         if (pet.isEmpty()) {
             return false;
         }

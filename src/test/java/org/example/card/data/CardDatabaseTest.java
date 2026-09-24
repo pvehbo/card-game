@@ -18,29 +18,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CardDatabaseTest {
 
     @Test
-    void loadsTwentyCardsWithExpectedTypeDistribution() {
+    void loadsTwentyEightCardsWithExpectedTypeDistribution() {
         List<Card> deck = CardDatabase.standardDeck();
-        assertEquals(20, deck.size(), "standardDeck 应返回 20 张（10 种 × 2）");
-        assertEquals(12, deck.stream().filter(c -> c instanceof MinionCard).count(), "翻倍后随从应 12 张");
-        assertEquals(4, deck.stream().filter(c -> c instanceof SpellCard).count(), "翻倍后法术应 4 张");
-        assertEquals(4, deck.stream().filter(c -> c instanceof PetCard).count(), "翻倍后宠物应 4 张");
-        assertEquals(10, CardDatabase.load().size(), "基础卡表应 10 种");
+        assertEquals(28, deck.size(), "standardDeck 应返回 28 张（10 老卡 × 2 + 8 明星单卡）");
+        assertEquals(16, deck.stream().filter(c -> c instanceof MinionCard).count(), "随从应 16 张");
+        assertEquals(6, deck.stream().filter(c -> c instanceof SpellCard).count(), "法术应 6 张");
+        assertEquals(6, deck.stream().filter(c -> c instanceof PetCard).count(), "宠物应 6 张");
+        assertEquals(18, CardDatabase.load().size(), "基础卡表应 18 种");
     }
 
     @Test
-    void standardDeckMatchesBattleDemoDeckIdMultiset() {
-        // BattleDemoTest.demoDeck 为 private 无法直接引用，这里逐字复刻它的 id 多重集合并对比。
+    void standardDeckHasOldCardsDoubledAndNewSingletons() {
+        // 老卡 10 种各 2 份 + 明星单卡 8 种各 1 份
         List<String> expected = new ArrayList<>();
         for (int copy = 0; copy < 2; copy++) {
             expected.addAll(List.of("m1", "m2", "m3", "m4", "m5", "m6", "s1", "s2", "p1", "p2"));
         }
+        expected.addAll(List.of("m7", "m8", "m9", "m10", "s3", "s4", "p3", "p4"));
         List<String> actual = new ArrayList<>();
         for (Card card : CardDatabase.standardDeck()) {
             actual.add(card.getId());
         }
         Collections.sort(expected);
         Collections.sort(actual);
-        assertEquals(expected, actual, "standardDeck 与 BattleDemoTest.demoDeck 的 id 多重集合应一致");
+        assertEquals(expected, actual, "standardDeck 的 id 多重集合应符合预期");
     }
 
     @Test

@@ -84,6 +84,12 @@ public class MinionCard extends Card {
     }
 
     @Override
+    public Card copy() {
+        return new MinionCard(getId(), getName(), getDescription(),
+                attack, maxHealth, cost, keywords);
+    }
+
+    @Override
     public String toString() {
         return "随从《" + getName() + "》(攻" + attack + "/血" + maxHealth + ")";
     }

@@ -13,7 +13,6 @@ import org.example.card.model.Deck;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
-import org.example.card.model.SpellCard;
 
 /**
  * 版本化存档（S8）：对局快照 ↔ JSON 字符串。
@@ -164,19 +163,7 @@ public final class SaveService {
         if (template == null) {
             throw new IllegalStateException(SOURCE + ":未知卡牌 id: " + id);
         }
-        if (template instanceof MinionCard m) {
-            return new MinionCard(m.getId(), m.getName(), m.getDescription(),
-                    m.getAttack(), m.getMaxHealth());
-        }
-        if (template instanceof SpellCard s) {
-            return new SpellCard(s.getId(), s.getName(), s.getDescription(),
-                    s.getKind(), s.getAmount());
-        }
-        if (template instanceof PetCard p) {
-            return new PetCard(p.getId(), p.getName(), p.getDescription(),
-                    p.getAttackBonus(), p.getHealthBonus());
-        }
-        throw new IllegalStateException(SOURCE + ":未知卡牌类型: " + id);
+        return template.copy();
     }
 
     private static long number(MiniJson.Obj obj, String key) {

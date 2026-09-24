@@ -4,5 +4,9 @@
   {"id": "m3", "name": "烈焰剑士", "text": "中坚输出", "attack": 3, "health": 3, "cost": 0, "keywords": []},
   {"id": "m4", "name": "暗影刺客", "text": "先手压制", "attack": 4, "health": 2, "cost": 0, "keywords": []},
   {"id": "m5", "name": "雷霆巨人", "text": "高攻终结", "attack": 6, "health": 6, "cost": 0, "keywords": []},
-  {"id": "m6", "name": "风语射手", "text": "稳定输出", "attack": 3, "health": 2, "cost": 0, "keywords": []}
+  {"id": "m6", "name": "风语射手", "text": "稳定输出", "attack": 3, "health": 2, "cost": 0, "keywords": []},
+  {"id": "m7", "name": "雷霆领主", "text": "冲锋：上场即可攻击", "attack": 7, "health": 5, "cost": 6, "keywords": ["CHARGE"], "copies": 1},
+  {"id": "m8", "name": "血肉巨兽", "text": "高攻脆皮", "attack": 8, "health": 3, "cost": 5, "keywords": [], "copies": 1},
+  {"id": "m9", "name": "城墙巨像", "text": "嘲讽：必须先攻击它", "attack": 1, "health": 8, "cost": 4, "keywords": ["TAUNT"], "copies": 1},
+  {"id": "m10", "name": "瘟疫使者", "text": "战吼·亡语", "attack": 4, "health": 4, "cost": 4, "keywords": ["BATTLECRY", "DEATHRATTLE"], "copies": 1}
 ]}

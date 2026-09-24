@@ -44,6 +44,11 @@ public class PetCard extends Card {
     }
 
     @Override
+    public Card copy() {
+        return new PetCard(getId(), getName(), getDescription(), attackBonus, healthBonus, cost);
+    }
+
+    @Override
     public String toString() {
         return "宠物《" + getName() + "》(光环:攻+" + attackBonus + "/血+" + healthBonus + ")";
     }

@@ -98,4 +98,35 @@ class ManaTest {
         assertTrue(engine.playMinion(self, (MinionCard) self.getHand().get(0), logs::add));
         assertEquals(1, self.getMana(), "开局 1 点法力，打 0 费不扣");
     }
+
+    @Test
+    void aiPicksAffordableMinion() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        List<String> logs = new ArrayList<>();
+        engine.beginAiTurn(self, logs::add);
+        self.getHand().add(minion("巨头", 7, 7, 6));
+        self.getHand().add(minion("杂兵", 2, 2, 0));
+
+        // 1 点法力：6 费巨头买不起，AI 应上 0 费杂兵而不是罚站
+        assertTrue(engine.aiSummon(self, logs::add));
+        assertEquals(1, self.getField().size());
+        assertEquals("杂兵", self.getField().get(0).getName());
+    }
+
+    @Test
+    void aiSkipsUnaffordableSpell() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        List<String> logs = new ArrayList<>();
+        engine.beginAiTurn(self, logs::add);
+        engine.beginAiTurn(self, logs::add); // 2 点法力
+        self.getHand().add(new SpellCard("s", "核弹", "打10", SpellCard.Kind.DAMAGE, 10, 5));
+
+        assertFalse(engine.aiSpell(self, foe, logs::add), "5 费法术 2 点法力打不出");
+        assertEquals(PlayerState.START_LIFE, foe.getLifePoints());
+        assertFalse(self.isSpellPlayed(), "没打出去不占法术次数");
+    }
 }

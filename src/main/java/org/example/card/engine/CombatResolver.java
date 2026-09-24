@@ -34,10 +34,13 @@ public final class CombatResolver {
         return minion.getAttack() + bonus;
     }
 
-    /** 宠物光环叠加后的随从血量上限。 */
+    /**
+     * 宠物光环叠加后的随从血量上限。
+     * 下限钳制为 1：负光环再大也不让随从当场去世（受伤致死仍走正常阵亡）。
+     */
     public static int effectiveMaxHealth(PlayerState owner, MinionCard minion) {
         int bonus = owner.getPets().stream().mapToInt(PetCard::getHealthBonus).sum();
-        return minion.getMaxHealth() + bonus;
+        return Math.max(1, minion.getMaxHealth() + bonus);
     }
 
     /** 随从当前血量 = 光环上限 - 已受伤害。 */

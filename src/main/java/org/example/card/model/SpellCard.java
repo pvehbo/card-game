@@ -47,6 +47,11 @@ public class SpellCard extends Card {
     }
 
     @Override
+    public Card copy() {
+        return new SpellCard(getId(), getName(), getDescription(), kind, amount, cost);
+    }
+
+    @Override
     public String toString() {
         return "法术《" + getName() + "》(" + kind + amount + ")";
     }

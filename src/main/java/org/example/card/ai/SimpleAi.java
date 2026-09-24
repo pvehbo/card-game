@@ -30,9 +30,11 @@ public class SimpleAi implements AiStrategy {
 
     @Override
     public Optional<SpellCard> chooseSpell(GameView view, List<Card> hand) {
+        // 买不起的法术直接过滤（留费/跳过，B-1 费用感知）
         List<SpellCard> spells = hand.stream()
                 .filter(c -> c instanceof SpellCard)
                 .map(c -> (SpellCard) c)
+                .filter(s -> view.selfMana() >= s.getCost())
                 .toList();
         if (spells.isEmpty()) {
             return Optional.empty();

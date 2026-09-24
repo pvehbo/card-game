@@ -13,7 +13,8 @@ import java.util.List;
  * 随从当前血量一律委托 {@link GameEngine#currentHealth} 计算（含宠物光环），
  * 本类不算光环、不重算规则。
  */
-public record GameView(int selfLife, int selfHandSize, int foeLife, List<MinionInfo> foeMinions) {
+public record GameView(int selfLife, int selfHandSize, int selfMana,
+                       int foeLife, List<MinionInfo> foeMinions) {
 
     /** 敌方单个随从的快照：名字 + 当前血量（含宠物光环）。 */
     public record MinionInfo(String name, int currentHealth) {
@@ -29,6 +30,7 @@ public record GameView(int selfLife, int selfHandSize, int foeLife, List<MinionI
         List<MinionInfo> foeMinions = foe.getField().stream()
                 .map(m -> new MinionInfo(m.getName(), GameEngine.currentHealth(foe, m)))
                 .toList();
-        return new GameView(self.getLifePoints(), self.getHand().size(), foe.getLifePoints(), foeMinions);
+        return new GameView(self.getLifePoints(), self.getHand().size(), self.getMana(),
+                foe.getLifePoints(), foeMinions);
     }
 }
