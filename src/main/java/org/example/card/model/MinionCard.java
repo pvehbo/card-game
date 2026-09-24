@@ -9,6 +9,7 @@ public class MinionCard extends Card {
     private final int attack;
     private final int maxHealth;
     private final int cost;
+    private final java.util.List<Keyword> keywords;
     private int damageTaken;
     /** 召唤失调：上场当回合不可攻击，己方回合结束时解除。 */
     private boolean summoningSickness = true;
@@ -19,13 +20,24 @@ public class MinionCard extends Card {
         this(id, name, description, attack, maxHealth, 0);
     }
 
-    /** 老卡默认 0 费；新卡走 JSON cost（见 data.CardDatabase）。 */
+    /** 老卡默认 0 费、无关键词；新卡走 JSON cost/keywords（见 data.CardDatabase）。 */
     public MinionCard(String id, String name, String description,
                       int attack, int maxHealth, int cost) {
+        this(id, name, description, attack, maxHealth, cost, java.util.List.of());
+    }
+
+    public MinionCard(String id, String name, String description,
+                      int attack, int maxHealth, int cost, java.util.List<Keyword> keywords) {
         super(id, name, description);
         this.attack = attack;
         this.maxHealth = maxHealth;
         this.cost = Math.max(0, cost);
+        this.keywords = java.util.List.copyOf(keywords);
+    }
+
+    /** 是否具有某关键词（冲锋/嘲讽/战吼/亡语）。 */
+    public boolean hasKeyword(Keyword keyword) {
+        return keywords.contains(keyword);
     }
 
     public int getAttack() {

@@ -111,7 +111,8 @@ public final class CardDatabase {
         if (health < 0) {
             throw new IllegalStateException(obj.atKey("health", "health 不能为负数：" + health));
         }
-        return new MinionCard(id, name, text, attack, health, (int) cost);
+        return new MinionCard(id, name, text, attack, health, (int) cost,
+                parseKeywords(needField(obj, "keywords").asArray()));
     }
 
     private static SpellCard parseSpell(MiniJson.Obj obj, String id, String name, String text,
@@ -167,7 +168,7 @@ public final class CardDatabase {
                 result.add(Keyword.valueOf(raw));
             } catch (IllegalArgumentException e) {
                 throw new IllegalStateException(keywordValue.at(
-                        "未知关键字 keywords[" + i + "]=" + raw + "，合法值：DAMAGE/HEAL/DRAW"));
+                        "未知关键字 keywords[" + i + "]=" + raw + "，合法值见 model.Keyword"));
             }
         }
         return result;

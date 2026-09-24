@@ -13,6 +13,7 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.TextAlignment;
 import org.example.card.model.Card;
+import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
 import org.example.card.model.SpellCard;
@@ -192,8 +193,21 @@ public class CardView extends StackPane {
     }
 
     private static String descriptionOf(Card card) {
-        if (card instanceof MinionCard) {
-            return "随从";
+        if (card instanceof MinionCard m) {
+            StringBuilder sb = new StringBuilder("随从");
+            if (m.hasKeyword(Keyword.CHARGE)) {
+                sb.append("·冲锋");
+            }
+            if (m.hasKeyword(Keyword.TAUNT)) {
+                sb.append("·嘲讽");
+            }
+            if (m.hasKeyword(Keyword.BATTLECRY)) {
+                sb.append("·战吼");
+            }
+            if (m.hasKeyword(Keyword.DEATHRATTLE)) {
+                sb.append("·亡语");
+            }
+            return sb.toString();
         } else if (card instanceof SpellCard s) {
             return switch (s.getKind()) {
                 case DAMAGE -> "造成 " + s.getAmount() + " 点伤害";

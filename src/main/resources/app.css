@@ -189,6 +189,12 @@
     -fx-cursor: crosshair;
 }
 
+/* 嘲讽：金色厚边框，一眼看出必须先打它 */
+.minion-taunt {
+    -fx-border-color: linear-gradient(to bottom, #ffe9a8, #c8862a);
+    -fx-border-width: 4;
+}
+
 .minion-sick {
     -fx-opacity: 0.72;
     -fx-border-color: linear-gradient(to bottom, #9a9a9a, #5a5a5a);

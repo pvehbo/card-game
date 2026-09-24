@@ -7,8 +7,10 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 
 import org.example.card.model.Card;
+import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PlayerState;
+import org.example.card.engine.ActionValidator;
 import org.example.card.ui.fx.Fx;
 import org.example.card.ui.viewmodel.BoardViewModel;
 
@@ -85,7 +87,10 @@ public final class BoardView {
 
         for (MinionCard m : ai.getField()) {
             MinionView view = new MinionView(m, ai, false);
-            if (vm.hasSelection() && vm.yourTurn()) {
+            // 有嘲讽时只能点嘲讽（打脸会被引擎拦下并提示）
+            if (vm.hasSelection() && vm.yourTurn()
+                    && (ActionValidator.taunts(ai).isEmpty()
+                        || m.hasKeyword(Keyword.TAUNT))) {
                 view.markTarget();
                 view.setOnMouseClicked(e -> handlers.onAttackMinion(m));
             }

@@ -9,6 +9,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Circle;
 import org.example.card.engine.GameEngine;
+import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PlayerState;
 
@@ -84,6 +85,9 @@ public class MinionView extends StackPane {
         int hp = GameEngine.currentHealth(owner, minion);
         getChildren().add(badge(String.valueOf(hp), "badge-health", Pos.BOTTOM_RIGHT, 1, 8));
 
+        if (minion.hasKeyword(Keyword.TAUNT)) {
+            getStyleClass().add("minion-taunt");
+        }
         if (minion.isSummoningSickness()) {
             getStyleClass().add("minion-sick");
             Label sick = new Label("Zzz");

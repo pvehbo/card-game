@@ -1,8 +1,8 @@
 package org.example.card.model;
 
 /**
- * 卡牌关键字枚举（S5 骨架版）：现与 {@link SpellCard.Kind} 一一对应，
- * 后续步骤再扩展战斗类关键字（如剧毒/嘲讽/冲锋）。
+ * 卡牌关键字（B-2 扩展到随从机制；DAMAGE/HEAL/DRAW 与 {@link SpellCard.Kind} 对应，
+ * 法术结算继续走 EffectRegistry）。
  */
 public enum Keyword {
 
@@ -13,5 +13,17 @@ public enum Keyword {
     HEAL,
 
     /** 抽牌类效果。 */
-    DRAW
+    DRAW,
+
+    /** 冲锋：上场当回合即可攻击，无视召唤失调。 */
+    CHARGE,
+
+    /** 嘲讽：敌方必须先攻击它（随从目标与打脸都被拦）。 */
+    TAUNT,
+
+    /** 战吼：上场时触发（走 TriggerSystem.ON_SUMMON，结算由注册的 Trigger 实现）。 */
+    BATTLECRY,
+
+    /** 亡语：阵亡时触发（走 TriggerSystem.ON_DEATH，结算由注册的 Trigger 实现）。 */
+    DEATHRATTLE
 }

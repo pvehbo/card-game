@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.example.card.model.Card;
+import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
@@ -92,6 +93,13 @@ public final class ActionValidator {
 
     // ============ 攻击 ============
 
+    /** 对方场上的嘲讽随从（按站位顺序）。 */
+    public static List<MinionCard> taunts(PlayerState foe) {
+        return foe.getField().stream()
+                .filter(m -> m.hasKeyword(Keyword.TAUNT))
+                .toList();
+    }
+
     /** 随从是否处于“可出手”状态（不含目标合法性）。 */
     public static boolean isReadyToAttack(MinionCard attacker) {
         return !attacker.isSummoningSickness() && !attacker.isAttackedThisTurn();
@@ -120,23 +128,32 @@ public final class ActionValidator {
         if (target != null && !foe.getField().contains(target)) {
             return Optional.of("攻击目标已不在场上");
         }
+        if (!taunts(foe).isEmpty()
+                && (target == null || !target.hasKeyword(Keyword.TAUNT))) {
+            return Optional.of("对方有嘲讽随从，必须先攻击它");
+        }
         return Optional.empty();
     }
 
     /**
      * 本方所有合法攻击动作。
      * 顺序稳定：按己方站位顺序；每个攻击者的目标按对方站位顺序，打脸排最后。
+     * 对方有嘲讽时只能打嘲讽（不许打脸）。
      */
     public static List<Move> legalActions(PlayerState self, PlayerState foe) {
         List<Move> moves = new ArrayList<>();
+        List<MinionCard> tauntWall = taunts(foe);
+        List<MinionCard> targets = tauntWall.isEmpty() ? foe.getField() : tauntWall;
         for (MinionCard attacker : self.getField()) {
             if (!isReadyToAttack(attacker)) {
                 continue;
             }
-            for (MinionCard target : foe.getField()) {
+            for (MinionCard target : targets) {
                 moves.add(new Move(attacker, target));
             }
-            moves.add(new Move(attacker, null));
+            if (tauntWall.isEmpty()) {
+                moves.add(new Move(attacker, null));
+            }
         }
         return moves;
     }

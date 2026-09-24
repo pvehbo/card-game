@@ -6,6 +6,7 @@ import org.example.card.ai.Target;
 import org.example.card.effect.EffectResult;
 import org.example.card.effect.GameContext;
 import org.example.card.effect.TriggerSystem;
+import org.example.card.model.Keyword;
 import org.example.card.event.GameEvent;
 import org.example.card.event.GameEventBus;
 import org.example.card.model.Card;
@@ -127,6 +128,7 @@ public class GameEngine {
         }
         self.getHand().remove(minion);
         self.getField().add(minion);
+        settleSummoned(minion, log);
         self.setMinionPlayed(true);
         self.spendMana(minion.getCost());
         String msg = "上场随从：" + minion;
@@ -262,6 +264,7 @@ public class GameEngine {
         self.setMinionPlayed(true);
         self.spendMana(minion.getCost());
         self.getField().add(minion);
+        settleSummoned(minion, log);
         String msg = "你上场了随从：" + minion;
         log.accept(msg);
         eventBus.publish(GameEvent.summon(self, minion, msg));
@@ -342,6 +345,17 @@ public class GameEngine {
     }
 
     // ============ 内部实现 ============
+
+    /**
+     * 上场结算：冲锋随从立即解除召唤失调。
+     * 关键词通用处理（非单卡特例），战吼/亡语走 TriggerSystem。
+     */
+    private void settleSummoned(MinionCard minion, Consumer<String> log) {
+        if (minion.hasKeyword(Keyword.CHARGE) && minion.isSummoningSickness()) {
+            minion.setSummoningSickness(false);
+            log.accept(minion.getName() + " 有冲锋，本回合即可攻击");
+        }
+    }
 
     /**
      * 战吼派发：紧跟上场事件，触发消息同步记日志。
