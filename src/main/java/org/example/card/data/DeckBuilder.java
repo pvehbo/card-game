@@ -85,10 +85,13 @@ public final class DeckBuilder {
         picks.clear();
     }
 
-    /** 一键默认：标准牌堆（30 张，合法可直接开局）。 */
+    /** 一键默认：标准牌堆前 30 张（确定性子集，合法可直接开局）。 */
     public void useStandard() {
         clear();
         for (Card card : CardDatabase.standardDeck()) {
+            if (picks.size() >= DECK_SIZE) {
+                break;
+            }
             picks.add(library.get(card.getId()).template());
         }
     }
@@ -119,8 +122,11 @@ public final class DeckBuilder {
                         + copyLimit(known.template()) + " 张");
             }
         }
-        if (picks.size() != DECK_SIZE) {
+        if (picks.size() < DECK_SIZE) {
             return Optional.of("牌组数量不足：" + picks.size() + "/" + DECK_SIZE);
+        }
+        if (picks.size() > DECK_SIZE) {
+            return Optional.of("牌组数量超标：" + picks.size() + "/" + DECK_SIZE);
         }
         return Optional.empty();
     }

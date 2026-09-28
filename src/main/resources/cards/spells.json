@@ -3,5 +3,8 @@
   {"id": "s2", "name": "治疗之触", "text": "回 4", "kind": "HEAL", "amount": 4, "cost": 0, "keywords": []},
   {"id": "s3", "name": "闪电风暴", "text": "打脸 5", "kind": "DAMAGE", "amount": 5, "cost": 3, "keywords": [], "copies": 1},
   {"id": "s4", "name": "生命绽放", "text": "回 10", "kind": "HEAL", "amount": 10, "cost": 5, "keywords": [], "copies": 1},
-  {"id": "s5", "name": "奥术研读", "text": "抽 2", "kind": "DRAW", "amount": 2, "cost": 2, "keywords": [], "copies": 1}
+  {"id": "s5", "name": "奥术研读", "text": "抽 2", "kind": "DRAW", "amount": 2, "cost": 2, "keywords": [], "copies": 1},
+  {"id": "s6", "name": "落雷术", "text": "打脸 4", "kind": "DAMAGE", "amount": 4, "cost": 2, "keywords": [], "copies": 1},
+  {"id": "s7", "name": "烈焰风暴", "text": "打脸 6", "kind": "DAMAGE", "amount": 6, "cost": 4, "keywords": [], "copies": 1},
+  {"id": "s8", "name": "星辰陨落", "text": "打脸 8", "kind": "DAMAGE", "amount": 8, "cost": 6, "keywords": [], "copies": 1}
 ]}

@@ -479,7 +479,7 @@ public class CardGameApp extends Application {
         subscribeEvents();
         engine.eventBus().onAny(e -> recorder.recordEvent(e));
         logArea.clear();
-        log("开局：你与 AI 各 3 张手牌，20 生命，无费用；每回合各限 1 随从 + 1 法术 + 1 宠物。");
+        log("开局：你与 AI 各 3 张手牌，20 生命；法力 1 点开局、每回合 +1（10 封顶）；每回合各限 1 随从 + 1 法术 + 1 宠物。");
         endTurnButton.setDisable(false);
         wasPlayerFirst = screenshotMode || RANDOM.nextBoolean();
         turnKills = 0;

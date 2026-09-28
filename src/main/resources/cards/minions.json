@@ -9,5 +9,11 @@
   {"id": "m8", "name": "血肉巨兽", "text": "高攻脆皮", "attack": 8, "health": 3, "cost": 5, "keywords": [], "copies": 1},
   {"id": "m9", "name": "城墙巨像", "text": "嘲讽：必须先攻击它", "attack": 1, "health": 8, "cost": 4, "keywords": ["TAUNT"], "copies": 1},
   {"id": "m10", "name": "瘟疫使者", "text": "战吼·亡语", "attack": 4, "health": 4, "cost": 4, "keywords": ["BATTLECRY", "DEATHRATTLE"], "copies": 1},
-  {"id": "m11", "name": "熔火犬", "text": "冲锋", "attack": 4, "health": 3, "cost": 3, "keywords": ["CHARGE"], "copies": 1}
+  {"id": "m11", "name": "熔火犬", "text": "冲锋", "attack": 4, "health": 3, "cost": 3, "keywords": ["CHARGE"], "copies": 1},
+  {"id": "m12", "name": "淬毒幼蛇", "text": "剧毒", "attack": 1, "health": 1, "cost": 1, "keywords": ["POISONOUS"], "copies": 1},
+  {"id": "m13", "name": "荒野快马", "text": "冲锋", "attack": 2, "health": 1, "cost": 1, "keywords": ["CHARGE"], "copies": 1},
+  {"id": "m14", "name": "旋风武僧", "text": "风怒", "attack": 2, "health": 3, "cost": 2, "keywords": ["WINDFURY"], "copies": 1},
+  {"id": "m15", "name": "银甲侍从", "text": "圣盾", "attack": 3, "health": 2, "cost": 3, "keywords": ["DIVINE_SHIELD"], "copies": 1},
+  {"id": "m16", "name": "圣堂守卫", "text": "嘲讽·圣盾", "attack": 3, "health": 5, "cost": 4, "keywords": ["TAUNT", "DIVINE_SHIELD"], "copies": 1},
+  {"id": "m17", "name": "黎明堡垒", "text": "嘲讽·圣盾", "attack": 5, "health": 7, "cost": 6, "keywords": ["TAUNT", "DIVINE_SHIELD"], "copies": 1}
 ]}

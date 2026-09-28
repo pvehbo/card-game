@@ -18,23 +18,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CardDatabaseTest {
 
     @Test
-    void loadsThirtyCardsWithExpectedTypeDistribution() {
+    void loadsFortyCardsWithExpectedTypeDistribution() {
         List<Card> deck = CardDatabase.standardDeck();
-        assertEquals(30, deck.size(), "standardDeck 应返回 30 张（10 老卡 × 2 + 10 明星单卡）");
-        assertEquals(17, deck.stream().filter(c -> c instanceof MinionCard).count(), "随从应 17 张");
-        assertEquals(7, deck.stream().filter(c -> c instanceof SpellCard).count(), "法术应 7 张");
-        assertEquals(6, deck.stream().filter(c -> c instanceof PetCard).count(), "宠物应 6 张");
-        assertEquals(20, CardDatabase.load().size(), "基础卡表应 20 种");
+        assertEquals(40, deck.size(), "standardDeck 应返回 40 张（10 老卡 × 2 + 20 明星单卡）");
+        assertEquals(23, deck.stream().filter(c -> c instanceof MinionCard).count(), "随从应 23 张");
+        assertEquals(10, deck.stream().filter(c -> c instanceof SpellCard).count(), "法术应 10 张");
+        assertEquals(7, deck.stream().filter(c -> c instanceof PetCard).count(), "宠物应 7 张");
+        assertEquals(30, CardDatabase.load().size(), "基础卡表应 30 种");
     }
 
     @Test
     void standardDeckHasOldCardsDoubledAndNewSingletons() {
-        // 老卡 10 种各 2 份 + 明星单卡 10 种各 1 份
+        // 老卡 10 种各 2 份 + 明星单卡 20 种各 1 份
         List<String> expected = new ArrayList<>();
         for (int copy = 0; copy < 2; copy++) {
             expected.addAll(List.of("m1", "m2", "m3", "m4", "m5", "m6", "s1", "s2", "p1", "p2"));
         }
-        expected.addAll(List.of("m7", "m8", "m9", "m10", "m11", "s3", "s4", "s5", "p3", "p4"));
+        expected.addAll(List.of("m7", "m8", "m9", "m10", "m11", "m12", "m13", "m14",
+                "m15", "m16", "m17", "s3", "s4", "s5", "s6", "s7", "s8", "p3", "p4", "p5"));
         List<String> actual = new ArrayList<>();
         for (Card card : CardDatabase.standardDeck()) {
             actual.add(card.getId());
