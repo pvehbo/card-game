@@ -45,6 +45,7 @@ import org.example.card.service.GameLog;
 import org.example.card.service.I18n;
 import org.example.card.service.ReplayRecorder;
 import org.example.card.service.SaveService;
+import org.example.card.service.StatsService;
 import org.example.card.ui.fx.Fx;
 import org.example.card.ui.fx.ParticleLayer;
 import org.example.card.ui.fx.Sfx;
@@ -93,6 +94,12 @@ public class CardGameApp extends Application {
     private Button soundButton;
     /** 用户配置（音效开关等，启动时读盘、切换时落盘）。 */
     private final ConfigService config = new ConfigService();
+    /** 数据统计（启动时读盘，终局时记录落盘；自动对局不计入）。 */
+    private final StatsService stats = new StatsService();
+    /** 本局是否玩家先手 + 本局单回合最大击杀（成就用）。 */
+    private boolean wasPlayerFirst;
+    private int turnKills;
+    private int maxKills;
     /** 当前 AI 难度（读档重建引擎时沿用）。 */
     private AiLevel aiLevel = AiLevel.NORMAL;
     /** 自定义牌组 id 表（null/空 = 标准牌堆；构筑窗口写入，配置落盘）。 */
@@ -113,6 +120,21 @@ public class CardGameApp extends Application {
     private Button replayPlayButton;
     private GameSession stashedSession;
 
+    /** 战绩读盘：文件不存在/损坏时从零计数（绝不炸启动）。 */
+    private void loadStats() {
+        java.nio.file.Path path = org.example.card.service.UserData.file("stats.json");
+        if (!java.nio.file.Files.isRegularFile(path)) {
+            return;
+        }
+        try {
+            StatsService loaded =
+                    StatsService.fromJson(java.nio.file.Files.readString(path));
+            // fromJson 恒返回非空（损坏归零），把计数搬过来
+            stats.absorb(loaded);
+        } catch (Exception ex) {
+            GameLog.warn("读取战绩失败，从零计数: " + ex.getMessage());
+        }
+    }
     private String soundLabel() {
         return I18n.get(SoundEngine.isEnabled() ? "sound.on" : "sound.off");
     }
@@ -130,6 +152,8 @@ public class CardGameApp extends Application {
         // 用户配置先行：音效开关读盘（文件缺失/损坏则用默认值，不影响启动）
         config.load();
         SoundEngine.setEnabled(config.isSoundEnabled());
+        // 战绩读盘（文件缺失/损坏则从零计数）
+        loadStats();
         String savedDeck = config.getDeckIds();
         customDeckIds = savedDeck == null || savedDeck.isBlank() ? null
                 : new ArrayList<>(List.of(savedDeck.split(",")));
@@ -207,6 +231,11 @@ public class CardGameApp extends Application {
         deckButton.getStyleClass().add("btn");
         deckButton.setOnAction(e -> openDeckBuilder());
 
+        Button statsButton = new Button("战绩");
+        statsButton.getStyleClass().add("btn");
+        statsButton.setOnAction(e -> org.example.card.ui.view.StatsView.show(
+                handBox.getScene() != null ? handBox.getScene().getWindow() : null, stats));
+
         // 回放控制条（平时隐藏）：上一步 / 播放暂停 / 下一步 / 退出回放
         Button prevButton = new Button("上一步");
         replayPlayButton = new Button("播放");
@@ -225,8 +254,11 @@ public class CardGameApp extends Application {
         replayBar.setVisible(false);
         replayBar.setManaged(false);
 
-        HBox controls = new HBox(12, startButton, endTurnButton, soundButton, levelBox,
-                loadButton, replayButton, deckButton, statusLabel, pileLabel);
+        // 按钮多了放不下：可换行，窄窗口自动折两行
+        javafx.scene.layout.FlowPane controls = new javafx.scene.layout.FlowPane(
+                javafx.geometry.Orientation.HORIZONTAL, 12, 4,
+                startButton, endTurnButton, soundButton, levelBox,
+                loadButton, replayButton, deckButton, statsButton, statusLabel, pileLabel);
         controls.setAlignment(Pos.CENTER_LEFT);
         controls.setPadding(new Insets(6, 4, 0, 4));
 
@@ -449,7 +481,10 @@ public class CardGameApp extends Application {
         logArea.clear();
         log("开局：你与 AI 各 3 张手牌，20 生命，无费用；每回合各限 1 随从 + 1 法术 + 1 宠物。");
         endTurnButton.setDisable(false);
-        controller.openGame(session, screenshotMode || RANDOM.nextBoolean(), this::log, screenshotMode);
+        wasPlayerFirst = screenshotMode || RANDOM.nextBoolean();
+        turnKills = 0;
+        maxKills = 0;
+        controller.openGame(session, wasPlayerFirst, this::log, screenshotMode);
         if (!screenshotMode) {
             recorder.captureTurn(session);
             autosave();
@@ -522,9 +557,13 @@ public class CardGameApp extends Application {
             }
         });
 
-        // 阵亡：消散粒子 + 音效
+        // 阵亡：消散粒子 + 音效；顺带记本回合击杀（满门抄斩成就用，仅玩家回合）
         bus.on(GameEvent.Type.DEATH, e -> {
             SoundEngine.play(Sfx.DEATH);
+            if (!replaying && yourTurn() && e.actor() == ai) {
+                turnKills++;
+                maxKills = Math.max(maxKills, turnKills);
+            }
             Node node = boardView.findMinionNode(e.card() instanceof MinionCard m ? m : null);
             if (node != null && particleLayer != null) {
                 var b = node.localToScene(node.getBoundsInLocal());
@@ -836,6 +875,7 @@ public class CardGameApp extends Application {
         if (!gameOver()) {
             controller.openPlayerTurn(session, this::log);
             statusLabel.setText("你的回合 · 请出牌");
+            turnKills = 0;
             recorder.captureTurn(session);
             autosave();
         }
@@ -1047,6 +1087,18 @@ public class CardGameApp extends Application {
         } catch (RuntimeException ex) {
             GameLog.warn("保存回放失败: " + ex.getMessage());
         }
+        // 战绩与成就（自动对局不计入）
+        if (!isAutoplay() && engine != null) {
+            StatsService.GameResult result = new StatsService.GameResult(won,
+                    aiLevel == AiLevel.HARD, wasPlayerFirst,
+                    player.getHand().isEmpty(), maxKills,
+                    player.getLifePoints(), engine.getTurn());
+            for (StatsService.Achievement achievement : stats.recordGame(result, aiLevel.name())) {
+                log("【成就解锁】" + achievement.displayName() + "（" + achievement.desc() + "）");
+                showToast("【成就】" + achievement.displayName());
+            }
+            saveStats();
+        }
         endTurnButton.setDisable(true);
         if (won) {
             log("胜利！敌方英雄被击溃。");
@@ -1061,6 +1113,17 @@ public class CardGameApp extends Application {
             statusLabel.setText("你输了");
             showBanner("败 北", "#ff6b6b");
             SoundEngine.play(Sfx.LOSE);
+        }
+    }
+
+    /** 战绩落盘（失败只记日志）。 */
+    private void saveStats() {
+        try {
+            java.nio.file.Path path = org.example.card.service.UserData.file("stats.json");
+            java.nio.file.Files.createDirectories(path.getParent());
+            java.nio.file.Files.writeString(path, stats.toJson());
+        } catch (Exception ex) {
+            GameLog.warn("保存战绩失败: " + ex.getMessage());
         }
     }
 
@@ -1083,6 +1146,37 @@ public class CardGameApp extends Application {
     }
 
     // ============ 动效 ============
+
+    /** 成就 toast：小金字顶部浮现后淡出（截图模式下跳过）。 */
+    private void showToast(String text) {
+        if (System.getProperty("ui.screenshot") != null || handBox.getScene() == null) {
+            return;
+        }
+        Label toast = new Label(text);
+        toast.setStyle("-fx-text-fill: #f0c96b; -fx-font-size: 20px; -fx-font-weight: bold;"
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 8, 0.6, 0, 2);"
+                + " -fx-background-color: rgba(10, 8, 16, 0.85); -fx-background-radius: 8;"
+                + " -fx-padding: 4 14 4 14;");
+        toast.setMouseTransparent(true);
+        StackPane rootStack = (StackPane) handBox.getScene().getRoot();
+        Pane overlay = new Pane(toast);
+        overlay.setMouseTransparent(true);
+        overlay.setPickOnBounds(false);
+        rootStack.getChildren().add(overlay);
+        toast.layoutXProperty().bind(rootStack.widthProperty().subtract(160).divide(2));
+        toast.layoutYProperty().bind(rootStack.heightProperty().multiply(0.18));
+
+        FadeTransition in = new FadeTransition(Duration.millis(250), toast);
+        in.setFromValue(0);
+        in.setToValue(1);
+        FadeTransition out = new FadeTransition(Duration.millis(600), toast);
+        out.setFromValue(1);
+        out.setToValue(0);
+        out.setDelay(Duration.millis(1800));
+        SequentialTransition seq = new SequentialTransition(in, out);
+        seq.setOnFinished(e -> rootStack.getChildren().remove(overlay));
+        seq.play();
+    }
 
     /** 中央横幅：回合切换 / 胜负。 */
     private void showBanner(String text, String color) {
