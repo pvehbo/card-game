@@ -96,7 +96,11 @@ public final class AiTurnDirector {
             steps.clear();
             return;
         }
-        steps.poll().run();
+        Runnable step = steps.poll();
+        if (step == null) {
+            return;
+        }
+        step.run();
         if (steps.isEmpty()) {
             return;
         }

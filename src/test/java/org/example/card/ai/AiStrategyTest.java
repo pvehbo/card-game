@@ -1,6 +1,6 @@
 package org.example.card.ai;
 
-import org.example.card.engine.GameEngine;
+import org.example.card.engine.CombatResolver;
 import org.example.card.model.Card;
 import org.example.card.model.Deck;
 import org.example.card.model.MinionCard;
@@ -93,7 +93,7 @@ class AiStrategyTest {
         foe.getPets().add(new PetCard("p1", "石肤兽", "血+2", 0, 2));  // 铁壁当前血 11
 
         List<Target> targets = List.of(weak, tank).stream()
-                .map(m -> new Target(m, GameEngine.currentHealth(foe, m)))
+                .map(m -> new Target(m, CombatResolver.currentHealth(foe, m)))
                 .toList();
 
         assertEquals(weak, ai.chooseAttackTarget(GameView.snapshot(self, foe), targets).orElseThrow(),
@@ -145,7 +145,7 @@ class AiStrategyTest {
                 "getter 不应暴露可变集合");
     }
 
-    /** 快照血量必须委托 GameEngine.currentHealth（含宠物光环），不能自己重算光环。 */
+    /** 快照血量必须委托 CombatResolver.currentHealth（含宠物光环），不能自己重算光环。 */
     @Test
     void snapshotHealthUsesGameEngineCurrentHealthWithAura() {
         PlayerState self = playerOf("AI", new ArrayList<>());

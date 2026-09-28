@@ -57,7 +57,7 @@ class GameEngineTest {
 
         // 光环后攻击 2+1=3，直击 20 血英雄
         assertEquals(PlayerState.START_LIFE - 3, foe.getLifePoints());
-        assertEquals(4, GameEngine.effectiveMaxHealth(self, m));
+        assertEquals(4, CombatResolver.effectiveMaxHealth(self, m));
     }
 
     @Test

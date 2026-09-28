@@ -596,7 +596,8 @@ public class CardGameApp extends Application {
 
     /** 用 snapshot 快照做"卡牌飞入战场"的视觉。 */
     private void animateCardFly(Card card, Node sourceCard) {
-        Node destination = null;
+        // 三个分支全赋值，初始值冗余（Qodana UnusedAssignment）
+        Node destination;
         if (card instanceof MinionCard m) {
             destination = boardView.findMinionNode(m);
         } else if (card instanceof PetCard) {

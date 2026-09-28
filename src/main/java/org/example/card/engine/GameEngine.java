@@ -61,24 +61,6 @@ public class GameEngine {
         return turn;
     }
 
-    /** 宠物光环叠加后的随从攻击（已搬入 CombatResolver，保留兼容）。 */
-    @Deprecated
-    public static int effectiveAttack(PlayerState owner, MinionCard minion) {
-        return CombatResolver.effectiveAttack(owner, minion);
-    }
-
-    /** 宠物光环叠加后的随从血量上限（已搬入 CombatResolver，保留兼容）。 */
-    @Deprecated
-    public static int effectiveMaxHealth(PlayerState owner, MinionCard minion) {
-        return CombatResolver.effectiveMaxHealth(owner, minion);
-    }
-
-    /** 随从当前血量 = 光环上限 - 已受伤害（已搬入 CombatResolver，保留兼容）。 */
-    @Deprecated
-    public static int currentHealth(PlayerState owner, MinionCard minion) {
-        return CombatResolver.currentHealth(owner, minion);
-    }
-
     // ============ AI 自动回合 ============
 
     /**

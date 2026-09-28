@@ -2,7 +2,7 @@ package org.example.card.model;
 
 /**
  * 随从卡（炉石式）：攻击 + 血量，受到的伤害会保留。
- * 光环加成（宠物）由 engine 动态计算，不写进基础数值，见 GameEngine.effectiveAttack。
+ * 光环加成（宠物）由 engine 动态计算，不写进基础数值，见 CombatResolver.effectiveAttack。
  */
 public class MinionCard extends Card {
 

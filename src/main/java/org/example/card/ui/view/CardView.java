@@ -176,7 +176,8 @@ public class CardView extends StackPane {
                 return "龍";
             } else if (atk >= 4) {
                 return "獸";
-            } else if (atk >= 3) {
+            } else if (atk == 3) {
+                // 前两个分支已排除 >3，>=3 在此恒等于 ==3（Qodana NonStrictComparisonCanBeEquality）
                 return "刃";
             }
             return "兵";

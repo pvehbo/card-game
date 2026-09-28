@@ -1,5 +1,6 @@
 package org.example.card.ai;
 
+import org.example.card.engine.CombatResolver;
 import org.example.card.engine.GameEngine;
 import org.example.card.model.Card;
 import org.example.card.model.Deck;
@@ -33,7 +34,7 @@ class AiDifficultyTest {
 
     private static List<Target> targets(PlayerState foe) {
         return foe.getField().stream()
-                .map(m -> new Target(m, GameEngine.currentHealth(foe, m)))
+                .map(m -> new Target(m, CombatResolver.currentHealth(foe, m)))
                 .toList();
     }
 

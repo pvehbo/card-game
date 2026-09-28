@@ -8,7 +8,7 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Circle;
-import org.example.card.engine.GameEngine;
+import org.example.card.engine.CombatResolver;
 import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PlayerState;
@@ -22,11 +22,9 @@ public class MinionView extends StackPane {
     public static final double SIZE = 86;
 
     private final MinionCard minion;
-    private final PlayerState owner;
 
     public MinionView(MinionCard minion, PlayerState owner, boolean own) {
         this.minion = minion;
-        this.owner = owner;
 
         setPrefSize(SIZE, SIZE);
         setMinSize(SIZE, SIZE);
@@ -79,10 +77,10 @@ public class MinionView extends StackPane {
         }
 
         // 攻击力（左下）
-        getChildren().add(badge(String.valueOf(GameEngine.effectiveAttack(owner, minion)),
+        getChildren().add(badge(String.valueOf(CombatResolver.effectiveAttack(owner, minion)),
                 "badge-attack", Pos.BOTTOM_LEFT, 1, 8));
         // 当前血量（右下）
-        int hp = GameEngine.currentHealth(owner, minion);
+        int hp = CombatResolver.currentHealth(owner, minion);
         getChildren().add(badge(String.valueOf(hp), "badge-health", Pos.BOTTOM_RIGHT, 1, 8));
 
         if (minion.hasKeyword(Keyword.TAUNT)) {

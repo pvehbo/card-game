@@ -33,6 +33,11 @@ public final class SoundEngine {
      */
     private static final Map<Sfx, Deque<Clip>> POOL =
             Collections.synchronizedMap(new EnumMap<>(Sfx.class));
+    /**
+     * 池锁：不要在局部变量（池引用）上同步——引用是局部的、对象是共享的，
+     * 换引用后锁就散了；统一用这把静态锁。
+     */
+    private static final Object POOL_LOCK = new Object();
     private static boolean enabled = true;
 
     private SoundEngine() {
@@ -91,10 +96,9 @@ public final class SoundEngine {
         if (clips == null || clips.isEmpty()) {
             return;
         }
-        final Deque<Clip> pool = clips;
         Clip clip;
-        synchronized (pool) {
-            clip = pool.poll();
+        synchronized (POOL_LOCK) {
+            clip = clips.poll();
         }
         if (clip == null) {
             return;
@@ -105,8 +109,8 @@ public final class SoundEngine {
         } catch (Exception ignored) {
             // 播放失败不影响游戏
         }
-        synchronized (pool) {
-            pool.offer(clip);
+        synchronized (POOL_LOCK) {
+            clips.offer(clip);
         }
     }
 
@@ -195,7 +199,7 @@ public final class SoundEngine {
             double t = i / (double) n;
             double base = 660 + 260 * Math.sin(2 * Math.PI * 6 * t);
             double env = Math.sin(Math.PI * Math.min(1, t * 1.4)) * Math.exp(-1.6 * t);
-            double s = Math.sin(2 * Math.PI * base * t / 1.0 * 1.0 + 0)
+            double s = Math.sin(2 * Math.PI * base * t)
                     + 0.5 * Math.sin(2 * Math.PI * base * 2 * t);
             buf[i] = (short) (s / 1.5 * env * 0.7 * Short.MAX_VALUE);
         }
@@ -207,7 +211,7 @@ public final class SoundEngine {
         int n = (int) (seconds * SAMPLE_RATE);
         short[] buf = new short[n];
         for (int i = 0; i < n; i++) {
-            double t = i / (double) seconds;
+            double t = i / seconds;
             double env = Math.exp(-4.2 * t);
             double s = Math.sin(2 * Math.PI * freq * i / SAMPLE_RATE)
                     + 0.42 * Math.sin(2 * Math.PI * freq * 2.01 * i / SAMPLE_RATE)

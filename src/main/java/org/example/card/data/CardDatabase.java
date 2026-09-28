@@ -185,16 +185,12 @@ public final class CardDatabase {
     }
 
     private static SpellCard.Kind toSpellKind(Keyword keyword) {
-        switch (keyword) {
-            case DAMAGE:
-                return SpellCard.Kind.DAMAGE;
-            case HEAL:
-                return SpellCard.Kind.HEAL;
-            case DRAW:
-                return SpellCard.Kind.DRAW;
-            default:
-                throw new AssertionError("未处理的关键字: " + keyword);
-        }
+        return switch (keyword) {
+            case DAMAGE -> SpellCard.Kind.DAMAGE;
+            case HEAL -> SpellCard.Kind.HEAL;
+            case DRAW -> SpellCard.Kind.DRAW;
+            default -> throw new AssertionError("未处理的关键字: " + keyword);
+        };
     }
 
     private static List<Keyword> parseKeywords(MiniJson.Arr keywords) {
