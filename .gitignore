@@ -26,3 +26,6 @@ dist/
 
 ### macOS ###
 .DS_Store
+
+# 工作底稿（含本机路径，不进仓库）
+docs/AI_PLAN.md

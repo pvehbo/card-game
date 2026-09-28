@@ -1,0 +1,386 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "卡牌对战 · 成熟游戏目标架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main-loop",
+        "label": "核心对局回路",
+        "focus": [
+          "player",
+          "ui_shell",
+          "session",
+          "rules",
+          "eventbus",
+          "board"
+        ],
+        "note": "玩家一次点击如何变成规则结算再回到画面。"
+      },
+      {
+        "id": "ai-path",
+        "label": "AI 回路",
+        "focus": [
+          "rules",
+          "ai",
+          "fxaudio",
+          "eventbus"
+        ],
+        "note": "AI 只经规则拿合法动作，演出与玩家走同一事件路。"
+      },
+      {
+        "id": "data-driven",
+        "label": "数据驱动与发布",
+        "focus": [
+          "carddb",
+          "session",
+          "infra",
+          "packaging"
+        ],
+        "note": "卡牌 JSON 化、存档版本化、发行版独立验证。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "carddb",
+      "type": "database",
+      "label": "卡牌数据库",
+      "sublabel": "cards/*.json 版本化",
+      "pos": [
+        40,
+        90
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "tag": "数据驱动"
+    },
+    {
+      "id": "session",
+      "type": "backend",
+      "label": "对局会话",
+      "sublabel": "TurnController + 模式",
+      "pos": [
+        250,
+        90
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "PvE / 本地对战"
+    },
+    {
+      "id": "effects",
+      "type": "backend",
+      "label": "效果注册表",
+      "sublabel": "关键词 + 触发器",
+      "pos": [
+        470,
+        90
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "Effect SPI"
+    },
+    {
+      "id": "rules",
+      "type": "backend",
+      "label": "规则引擎 v2",
+      "sublabel": "阶段 + 结算 + Buff",
+      "pos": [
+        690,
+        90
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "GameEngine 拆分后"
+    },
+    {
+      "id": "ai",
+      "type": "backend",
+      "label": "AI 策略族",
+      "sublabel": "AiStrategy 接口",
+      "pos": [
+        900,
+        90
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "tag": "简单 / 贪心 / MCTS占位"
+    },
+    {
+      "id": "infra",
+      "type": "backend",
+      "label": "基础服务",
+      "sublabel": "存档 / 配置 / 日志",
+      "pos": [
+        40,
+        270
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "tag": "版本化存档"
+    },
+    {
+      "id": "ui_shell",
+      "type": "frontend",
+      "label": "界面壳 MVVM",
+      "sublabel": "JavaFX + ViewModel",
+      "pos": [
+        250,
+        270
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "board",
+      "type": "frontend",
+      "label": "战场视图",
+      "sublabel": "Card/Minion/HeroView",
+      "pos": [
+        470,
+        270
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "eventbus",
+      "type": "messagebus",
+      "label": "游戏事件总线",
+      "sublabel": "GameEventBus v2",
+      "pos": [
+        690,
+        270
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "fxaudio",
+      "type": "frontend",
+      "label": "表现层",
+      "sublabel": "Fx + 粒子 + 音效",
+      "pos": [
+        900,
+        270
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "packaging",
+      "type": "cloud",
+      "label": "构建发布",
+      "sublabel": "jlink + jpackage + CI",
+      "pos": [
+        40,
+        440
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "tag": "Win / mac / Linux"
+    },
+    {
+      "id": "player",
+      "type": "external",
+      "label": "玩家输入",
+      "sublabel": "点击 / 快捷键 / 触屏",
+      "pos": [
+        250,
+        440
+      ],
+      "size": [
+        140,
+        60
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "对局内核（纯 Java，可无头测试）",
+      "wraps": [
+        "session",
+        "effects",
+        "rules",
+        "ai"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "客户端表现（JavaFX 线程隔离）",
+      "wraps": [
+        "ui_shell",
+        "board",
+        "player"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "provide-cards",
+      "from": "carddb",
+      "to": "session",
+      "label": "提供卡牌定义"
+    },
+    {
+      "id": "assemble",
+      "from": "session",
+      "to": "effects",
+      "label": "装配效果表"
+    },
+    {
+      "id": "resolve",
+      "from": "effects",
+      "to": "rules",
+      "label": "查注册表结算"
+    },
+    {
+      "id": "legal-moves",
+      "from": "rules",
+      "to": "ai",
+      "label": "提供合法动作"
+    },
+    {
+      "id": "ai-pending",
+      "from": "ai",
+      "to": "fxaudio",
+      "label": "走子待演出",
+      "labelAt": [
+        965,
+        168
+      ]
+    },
+    {
+      "id": "publish",
+      "from": "rules",
+      "to": "eventbus",
+      "label": "发布不可变事件",
+      "labelAt": [
+        760,
+        168
+      ]
+    },
+    {
+      "id": "notify-board",
+      "from": "eventbus",
+      "to": "board",
+      "label": "通知刷新"
+    },
+    {
+      "id": "notify-fx",
+      "from": "eventbus",
+      "to": "fxaudio",
+      "label": "订阅播动效",
+      "variant": "dashed"
+    },
+    {
+      "id": "drive-board",
+      "from": "ui_shell",
+      "to": "board",
+      "label": "驱动视图刷新"
+    },
+    {
+      "id": "command",
+      "from": "ui_shell",
+      "to": "session",
+      "label": "合法动作命令",
+      "labelAt": [
+        320,
+        190
+      ]
+    },
+    {
+      "id": "input",
+      "from": "player",
+      "to": "ui_shell",
+      "label": "点击 / 指令",
+      "variant": "emphasis"
+    },
+    {
+      "id": "render",
+      "from": "board",
+      "to": "player",
+      "label": "渲染回放"
+    },
+    {
+      "id": "snapshot",
+      "from": "ui_shell",
+      "to": "infra",
+      "label": "存档读档快照",
+      "variant": "dashed"
+    },
+    {
+      "id": "ship",
+      "from": "infra",
+      "to": "packaging",
+      "label": "产出发行版",
+      "variant": "dashed",
+      "labelAt": [
+        105,
+        344
+      ]
+    },
+    {
+      "id": "deliver",
+      "from": "packaging",
+      "to": "player",
+      "label": "分发安装包",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "解耦主线",
+      "items": [
+        "UI 只发命令、只订事件，不直调结算",
+        "内核无 JavaFX 依赖，可纯逻辑单测",
+        "AI 与玩家走同一会话接口"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "扩展点",
+      "items": [
+        "新关键词只加 Effect 实现 + JSON",
+        "新 AI 只实现 AiStrategy 接口",
+        "卡图音效走资源回退链缺省可跑"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "兼容底线",
+      "items": [
+        "Java 17 LTS + JavaFX 21 基线不变",
+        "存档带 schemaVersion 向前兼容",
+        "无音频无图片设备静默降级"
+      ]
+    }
+  ]
+}

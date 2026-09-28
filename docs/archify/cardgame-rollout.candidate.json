@@ -1,0 +1,318 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "卡牌对战 · 分阶段落地流程",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "kernel",
+        "label": "内核先行",
+        "focus": [
+          "baseline",
+          "engine_split",
+          "effect_registry",
+          "card_json"
+        ],
+        "note": "先把引擎拆小、效果注册，再动数据。"
+      },
+      {
+        "id": "content-ai",
+        "label": "数据与智能",
+        "focus": [
+          "card_json",
+          "ai_strategy",
+          "ui_mvvm",
+          "save_compat"
+        ],
+        "note": "卡牌 JSON 化与 AI 接口并行，会话快照兜底。"
+      },
+      {
+        "id": "ship",
+        "label": "发布兜底",
+        "focus": [
+          "verify_release",
+          "release",
+          "rollback",
+          "blocked"
+        ],
+        "note": "门禁红灯停线，冒烟失败回滚，两处止损点。"
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "core",
+      "label": "核心重构"
+    },
+    {
+      "id": "content",
+      "label": "玩法数据"
+    },
+    {
+      "id": "ui",
+      "label": "界面表现"
+    },
+    {
+      "id": "qa",
+      "label": "质量发布"
+    },
+    {
+      "id": "exceptions",
+      "label": "阻塞与回滚",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "p0",
+      "label": "P0 基线",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "p1",
+      "label": "P1 内核 + 数据",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "p2",
+      "label": "P2 表现 + 发布",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "groups": [
+    {
+      "id": "kernel_work",
+      "label": "内核拆分",
+      "lane": "core",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "content_work",
+      "label": "数据驱动",
+      "lane": "content",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "default"
+    },
+    {
+      "id": "recovery",
+      "label": "止损路径",
+      "lane": "exceptions",
+      "fromCol": 2,
+      "toCol": 4,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "baseline",
+    "engine_split",
+    "effect_registry",
+    "card_json",
+    "ai_strategy",
+    "ui_mvvm",
+    "save_compat",
+    "verify_release",
+    "release"
+  ],
+  "nodes": [
+    {
+      "id": "baseline",
+      "lane": "core",
+      "col": 0,
+      "type": "backend",
+      "label": "基线冻结",
+      "sublabel": "测试截图打包验证"
+    },
+    {
+      "id": "engine_split",
+      "lane": "core",
+      "col": 1,
+      "type": "backend",
+      "label": "引擎拆分",
+      "sublabel": "结算触发Buff分离",
+      "tag": "不改玩法"
+    },
+    {
+      "id": "effect_registry",
+      "lane": "content",
+      "col": 1,
+      "type": "backend",
+      "label": "效果注册表",
+      "sublabel": "Effect SPI + 关键词"
+    },
+    {
+      "id": "card_json",
+      "lane": "content",
+      "col": 2,
+      "type": "database",
+      "label": "卡牌 JSON 化",
+      "sublabel": "Schema + 校验工具",
+      "tag": "JSON Schema"
+    },
+    {
+      "id": "ai_strategy",
+      "lane": "core",
+      "col": 2,
+      "type": "backend",
+      "label": "AI 策略接口",
+      "sublabel": "贪心保留 + 难度分级"
+    },
+    {
+      "id": "ui_mvvm",
+      "lane": "ui",
+      "col": 3,
+      "type": "frontend",
+      "label": "界面 MVVM 拆分",
+      "sublabel": "神类拆分 + 事件绑定"
+    },
+    {
+      "id": "save_compat",
+      "lane": "core",
+      "col": 3,
+      "type": "database",
+      "label": "存档与兼容",
+      "sublabel": "版本化快照 + 回退"
+    },
+    {
+      "id": "verify_release",
+      "lane": "qa",
+      "col": 4,
+      "type": "cloud",
+      "label": "三端打包冒烟",
+      "sublabel": "jpackage + 自-play",
+      "tag": "Win mac Linux"
+    },
+    {
+      "id": "release",
+      "lane": "qa",
+      "col": 5,
+      "type": "external",
+      "label": "发布验收",
+      "sublabel": "截图战报留痕"
+    },
+    {
+      "id": "blocked",
+      "lane": "exceptions",
+      "col": 3,
+      "type": "security",
+      "label": "门禁失败停线",
+      "sublabel": "P1门禁红灯不合入"
+    },
+    {
+      "id": "rollback",
+      "lane": "exceptions",
+      "col": 4,
+      "type": "messagebus",
+      "label": "回滚基线",
+      "sublabel": "上一个可玩版本"
+    }
+  ],
+  "edges": [
+    {
+      "from": "baseline",
+      "to": "engine_split"
+    },
+    {
+      "from": "engine_split",
+      "to": "effect_registry"
+    },
+    {
+      "from": "effect_registry",
+      "to": "card_json"
+    },
+    {
+      "from": "card_json",
+      "to": "ai_strategy",
+      "route": "drop",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "ai_strategy",
+      "to": "ui_mvvm"
+    },
+    {
+      "from": "ui_mvvm",
+      "to": "save_compat"
+    },
+    {
+      "from": "save_compat",
+      "to": "verify_release",
+      "route": "drop",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "verify_release",
+      "to": "release"
+    },
+    {
+      "from": "ui_mvvm",
+      "to": "blocked",
+      "label": "红灯",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "from": "blocked",
+      "to": "effect_registry",
+      "label": "修复重入",
+      "variant": "dashed",
+      "role": "return"
+    },
+    {
+      "from": "verify_release",
+      "to": "rollback",
+      "label": "冒烟失败",
+      "variant": "security",
+      "role": "error",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "rollback",
+      "to": "save_compat",
+      "label": "恢复重验",
+      "variant": "dashed",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "一条 happy path",
+      "items": [
+        "基线冻结后才允许重构合入",
+        "每阶段都有可玩版本 + 自动化冒烟",
+        "发布以截图战报为验收证据"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "两处止损",
+      "items": [
+        "门禁红灯停线：测试失败不向下合入",
+        "冒烟失败回滚：退回上一个可玩版本",
+        "回滚与重入路径在图中可见"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "可执行",
+      "items": [
+        "每步对应计划书中的命令与验收",
+        "内核无 JavaFX 依赖可先行单测",
+        "数据改动只碰 JSON 不碰结算代码"
+      ]
+    }
+  ]
+}
