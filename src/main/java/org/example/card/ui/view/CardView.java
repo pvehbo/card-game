@@ -208,6 +208,15 @@ public class CardView extends StackPane {
             if (m.hasKeyword(Keyword.DEATHRATTLE)) {
                 sb.append("·亡语");
             }
+            if (m.hasKeyword(Keyword.DIVINE_SHIELD)) {
+                sb.append("·圣盾");
+            }
+            if (m.hasKeyword(Keyword.WINDFURY)) {
+                sb.append("·风怒");
+            }
+            if (m.hasKeyword(Keyword.POISONOUS)) {
+                sb.append("·剧毒");
+            }
             return sb.toString();
         } else if (card instanceof SpellCard s) {
             return switch (s.getKind()) {

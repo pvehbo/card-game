@@ -195,6 +195,14 @@
     -fx-border-width: 4;
 }
 
+/* 圣盾：左上角“盾”字（与顶部 Zzz/已动不撞位） */
+.minion-shield-text {
+    -fx-text-fill: #bfe6ff;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.9), 5, 0.6, 0, 1);
+}
+
 .minion-sick {
     -fx-opacity: 0.72;
     -fx-border-color: linear-gradient(to bottom, #9a9a9a, #5a5a5a);

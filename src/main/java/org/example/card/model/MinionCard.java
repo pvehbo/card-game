@@ -13,8 +13,10 @@ public class MinionCard extends Card {
     private int damageTaken;
     /** 召唤失调：上场当回合不可攻击，己方回合结束时解除。 */
     private boolean summoningSickness = true;
-    /** 本回合是否已经出过手：每个随从每回合只能攻击 1 次。 */
-    private boolean attackedThisTurn;
+    /** 本回合已出手次数（风怒可出手 2 次，其余 1 次）。 */
+    private int attacksUsed;
+    /** 圣盾：抵消下一次受到的伤害（有圣盾关键词上场时立起）。 */
+    private boolean shieldUp;
 
     public MinionCard(String id, String name, String description, int attack, int maxHealth) {
         this(id, name, description, attack, maxHealth, 0);
@@ -33,11 +35,29 @@ public class MinionCard extends Card {
         this.maxHealth = maxHealth;
         this.cost = Math.max(0, cost);
         this.keywords = java.util.List.copyOf(keywords);
+        this.shieldUp = this.keywords.contains(Keyword.DIVINE_SHIELD);
     }
 
-    /** 是否具有某关键词（冲锋/嘲讽/战吼/亡语）。 */
+    /** 是否具有某关键词（冲锋/嘲讽/战吼/亡语/圣盾/风怒/剧毒）。 */
     public boolean hasKeyword(Keyword keyword) {
         return keywords.contains(keyword);
+    }
+
+    /** 圣盾是否还立着。 */
+    public boolean hasDivineShield() {
+        return shieldUp;
+    }
+
+    /**
+     * 尝试用圣盾抵挡一次伤害：立着就消耗并返回 true（本次不受伤害），
+     * 否则返回 false。
+     */
+    public boolean consumeDivineShield() {
+        if (shieldUp) {
+            shieldUp = false;
+            return true;
+        }
+        return false;
     }
 
     public int getAttack() {
@@ -64,13 +84,36 @@ public class MinionCard extends Card {
         this.summoningSickness = summoningSickness;
     }
 
-    /** 本回合是否已经攻击过。 */
+    /** 本回合是否已经出过手（风怒出手 1 次后仍可再出手，显示层请用 ActionValidator）。 */
     public boolean isAttackedThisTurn() {
-        return attackedThisTurn;
+        return attacksUsed > 0;
     }
 
+    /**
+     * 标记出手状态（兼容旧调用：true 按“耗尽”计，false 清零）。
+     * 引擎走 {@link #registerAttack} / {@link #resetAttacks}。
+     */
     public void setAttackedThisTurn(boolean attackedThisTurn) {
-        this.attackedThisTurn = attackedThisTurn;
+        if (attackedThisTurn) {
+            attacksUsed = Math.max(attacksUsed, hasKeyword(Keyword.WINDFURY) ? 2 : 1);
+        } else {
+            attacksUsed = 0;
+        }
+    }
+
+    /** 本回合已出手次数。 */
+    public int getAttacksUsed() {
+        return attacksUsed;
+    }
+
+    /** 出手一次（结算成功后调用）。 */
+    public void registerAttack() {
+        attacksUsed++;
+    }
+
+    /** 新回合开始：出手次数清零。 */
+    public void resetAttacks() {
+        attacksUsed = 0;
     }
 
     @Override

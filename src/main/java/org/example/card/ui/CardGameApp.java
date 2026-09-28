@@ -702,7 +702,7 @@ public class CardGameApp extends Application {
         if (vm.selectedAttacker() == minion) {
             vm.clearSelection();
             log("取消选择：" + minion.getName());
-        } else if (minion.isAttackedThisTurn()) {
+        } else if (!ActionValidator.isReadyToAttack(minion)) {
             log(minion.getName() + " 本回合已经攻击过了");
         } else if (minion.isSummoningSickness()) {
             log(minion.getName() + " 召唤失调，本回合还不能攻击");

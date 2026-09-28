@@ -100,9 +100,11 @@ public final class ActionValidator {
                 .toList();
     }
 
-    /** 随从是否处于“可出手”状态（不含目标合法性）。 */
+    /** 随从是否处于“可出手”状态（不含目标合法性）：无召唤失调且出手次数未用完（风怒 2 次）。 */
     public static boolean isReadyToAttack(MinionCard attacker) {
-        return !attacker.isSummoningSickness() && !attacker.isAttackedThisTurn();
+        return !attacker.isSummoningSickness()
+                && (attacker.getAttacksUsed() == 0
+                    || (attacker.hasKeyword(Keyword.WINDFURY) && attacker.getAttacksUsed() < 2));
     }
 
     public static boolean canAttack(PlayerState self, PlayerState foe,
@@ -122,7 +124,7 @@ public final class ActionValidator {
         if (attacker.isSummoningSickness()) {
             return Optional.of(attacker.getName() + " 召唤失调，本回合还不能攻击");
         }
-        if (attacker.isAttackedThisTurn()) {
+        if (!isReadyToAttack(attacker)) {
             return Optional.of(attacker.getName() + " 本回合已经攻击过了");
         }
         if (target != null && !foe.getField().contains(target)) {

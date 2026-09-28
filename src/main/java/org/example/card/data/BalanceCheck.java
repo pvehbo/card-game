@@ -12,7 +12,8 @@ import org.example.card.model.SpellCard;
 /**
  * 数值体检（B-3）：香草公式筛超标卡，只告警不拦截（配牌师定夺）。
  *
- * - 随从（cost&gt;0）：身材 + 战斗关键词×2 ≈ 2×费用+2，差值超 3 告警；
+ * - 随从（cost&gt;0）：身材 + 战斗关键词×2（圣盾/风怒同权，剧毒×3）≈ 2×费用+2，
+ *   差值超 3 告警；
  * - 法术：伤害 amount ≤ cost+2，治疗 ≤ 2×cost，过牌张数 ≤ cost；
  * - 宠物：|攻|+|血| ≤ cost+2；
  * - 0 费基础卡免检（祖传数值，保持不动）。
@@ -31,12 +32,14 @@ public final class BalanceCheck {
             if (card instanceof MinionCard m) {
                 int keywords = 0;
                 for (Keyword keyword : List.of(Keyword.CHARGE, Keyword.TAUNT,
-                        Keyword.BATTLECRY, Keyword.DEATHRATTLE)) {
+                        Keyword.BATTLECRY, Keyword.DEATHRATTLE,
+                        Keyword.DIVINE_SHIELD, Keyword.WINDFURY)) {
                     if (m.hasKeyword(keyword)) {
                         keywords++;
                     }
                 }
-                int value = m.getAttack() + m.getMaxHealth() + 2 * keywords;
+                int poison = m.hasKeyword(Keyword.POISONOUS) ? 3 : 0;
+                int value = m.getAttack() + m.getMaxHealth() + 2 * keywords + poison;
                 int par = 2 * m.getCost() + 2;
                 if (Math.abs(value - par) > 3) {
                     warnings.add("随从超标 " + m.getId() + "：身材+关键词=" + value

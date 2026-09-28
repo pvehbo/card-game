@@ -1,5 +1,6 @@
 package org.example.card.ai;
 
+import org.example.card.engine.ActionValidator;
 import org.example.card.engine.CombatResolver;
 import org.example.card.model.PlayerState;
 
@@ -35,7 +36,7 @@ public record GameView(int selfLife, int selfHandSize, int selfMana,
                         m.hasKeyword(org.example.card.model.Keyword.TAUNT)))
                 .toList();
         List<MinionInfo> readyAttackers = self.getField().stream()
-                .filter(m -> !m.isSummoningSickness() && !m.isAttackedThisTurn())
+                .filter(ActionValidator::isReadyToAttack)
                 .map(m -> new MinionInfo(m.getName(), CombatResolver.effectiveAttack(self, m),
                         CombatResolver.currentHealth(self, m), false))
                 .toList();

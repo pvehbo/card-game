@@ -205,7 +205,7 @@ public class GameEngine {
             return false;
         }
         performAttack(self, foe, attacker, target, log);
-        attacker.setAttackedThisTurn(true);
+        attacker.registerAttack();
         return true;
     }
 
@@ -326,7 +326,7 @@ public class GameEngine {
             return false;
         }
         performAttack(self, foe, attacker, target, log);
-        attacker.setAttackedThisTurn(true);
+        attacker.registerAttack();
         return true;
     }
 
@@ -399,7 +399,7 @@ public class GameEngine {
     private void endPhase(PlayerState self, PlayerState foe, Consumer<String> log) {
         for (MinionCard minion : self.getField()) {
             minion.setSummoningSickness(false);
-            minion.setAttackedThisTurn(false);
+            minion.resetAttacks();
         }
     }
 }

@@ -8,6 +8,7 @@ import org.example.card.effect.EffectRegistry;
 import org.example.card.effect.GameContext;
 import org.example.card.effect.TriggerSystem;
 import org.example.card.event.GameEvent;
+import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
@@ -65,15 +66,33 @@ public final class CombatResolver {
             events.add(GameEvent.damage(foe, atk, msg));
         } else {
             int defAtk = effectiveAttack(foe, target);
-            target.takeDamage(atk);
-            attacker.takeDamage(defAtk);
             String msg = attacker.getName() + "(" + atk + ") 与 "
                     + target.getName() + "(" + defAtk + ") 互撞";
             logs.add(msg);
             events.add(GameEvent.attack(self, foe, attacker, target, atk, msg));
-            // 随从受伤：带上受害者随从，界面才能把飘字/粒子锚在随从身上
-            events.add(GameEvent.damage(foe, target, atk, msg));
-            events.add(GameEvent.damage(self, attacker, defAtk, msg));
+            // 目标受伤：圣盾先挡（挡下则无伤害事件、无剧毒）
+            if (target.consumeDivineShield()) {
+                logs.add(target.getName() + " 的圣盾抵挡了伤害");
+            } else {
+                target.takeDamage(atk);
+                // 随从受伤：带上受害者随从，界面才能把飘字/粒子锚在随从身上
+                events.add(GameEvent.damage(foe, target, atk, msg));
+                if (attacker.hasKeyword(Keyword.POISONOUS) && atk > 0) {
+                    target.takeDamage(currentHealth(foe, target));
+                    logs.add(attacker.getName() + " 的剧毒发作");
+                }
+            }
+            // 反击：攻击者的圣盾同理
+            if (attacker.consumeDivineShield()) {
+                logs.add(attacker.getName() + " 的圣盾抵挡了伤害");
+            } else {
+                attacker.takeDamage(defAtk);
+                events.add(GameEvent.damage(self, attacker, defAtk, msg));
+                if (target.hasKeyword(Keyword.POISONOUS) && defAtk > 0) {
+                    attacker.takeDamage(currentHealth(self, attacker));
+                    logs.add(target.getName() + " 的剧毒发作");
+                }
+            }
             if (removeDead(foe, target, events, logs)) {
                 fireDeathTriggers(self, foe, target, events, logs);
             }

@@ -79,7 +79,9 @@ public final class SaveService {
             }
             MinionCard m = state.getField().get(i);
             out.append("{\"id\":").append(quote(m.getId()));
-            out.append(",\"damageTaken\":").append(m.getDamageTaken()).append("}");
+            out.append(",\"damageTaken\":").append(m.getDamageTaken());
+            out.append(",\"shield\":").append(quote(Boolean.toString(m.hasDivineShield())));
+            out.append("}");
         }
         out.append("],\"pets\":");
         writeIds(out, new ArrayList<>(state.getPets()));
@@ -143,6 +145,12 @@ public final class SaveService {
                 throw new IllegalStateException(SOURCE + ":战场上的不是随从: " + id);
             }
             minion.takeDamage(damageTaken);
+            // 圣盾状态：老存档无该字段默认立起（反正老卡没圣盾，无影响）
+            if (field.contains("shield")
+                    && !bool(field, "shield")
+                    && minion.hasDivineShield()) {
+                minion.consumeDivineShield();
+            }
             state.getField().add(minion);
         }
         for (String id : strings(obj.get("pets").asArray())) {
@@ -186,8 +194,7 @@ public final class SaveService {
         return Boolean.parseBoolean(raw);
     }
 
-    private static List<String> strings(MiniJson.Arr arr) {
-        List<String> out = new ArrayList<>();
+    private static List<String> strings(MiniJson.Arr arr) {        List<String> out = new ArrayList<>();
         for (int i = 0; i < arr.size(); i++) {
             out.add(arr.get(i).asString().value());
         }

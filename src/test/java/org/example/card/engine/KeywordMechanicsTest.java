@@ -190,4 +190,116 @@ class KeywordMechanicsTest {
                 logs::add));
         assertTrue(attacker.isAttackedThisTurn());
     }
+
+    @Test
+    void divineShieldBlocksFirstHitOnly() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard attacker = minion("打手", 3, 3);
+        attacker.setSummoningSickness(false);
+        self.getField().add(attacker);
+        MinionCard guarded = minion("圣盾兵", 2, 2, Keyword.DIVINE_SHIELD);
+        foe.getField().add(guarded);
+        List<String> logs = new ArrayList<>();
+
+        assertTrue(guarded.hasDivineShield());
+        assertTrue(engine.attack(self, foe, attacker, guarded, logs::add));
+        assertFalse(guarded.hasDivineShield(), "第一下破盾");
+        assertTrue(foe.getField().contains(guarded), "挡下后存活");
+        assertTrue(logs.stream().anyMatch(l -> l.contains("圣盾")));
+
+        // 第二下：盾没了，正常受伤（2 血吃 3 点阵亡）
+        MinionCard finisher = minion("补刀", 3, 3);
+        finisher.setSummoningSickness(false);
+        self.getField().add(finisher);
+        assertTrue(engine.attack(self, foe, finisher, guarded, logs::add));
+        assertFalse(foe.getField().contains(guarded));
+    }
+
+    @Test
+    void windfuryAttacksTwice() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard fury = minion("旋风", 2, 4, Keyword.WINDFURY);
+        fury.setSummoningSickness(false);
+        self.getField().add(fury);
+        List<String> logs = new ArrayList<>();
+
+        assertTrue(engine.attack(self, foe, fury, null, logs::add));
+        assertTrue(ActionValidator.isReadyToAttack(fury), "风怒出手 1 次后还能再出手");
+        assertTrue(engine.attack(self, foe, fury, null, logs::add));
+        assertFalse(ActionValidator.isReadyToAttack(fury), "第 2 次后耗尽");
+        assertEquals(PlayerState.START_LIFE - 4, foe.getLifePoints());
+    }
+
+    @Test
+    void poisonousDestroysRegardlessOfHealth() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard snake = minion("毒蛇", 1, 1, Keyword.POISONOUS);
+        snake.setSummoningSickness(false);
+        self.getField().add(snake);
+        MinionCard giant = minion("巨人", 6, 9);
+        foe.getField().add(giant);
+        List<String> logs = new ArrayList<>();
+
+        assertTrue(engine.attack(self, foe, snake, giant, logs::add));
+        assertFalse(foe.getField().contains(giant), "1 攻剧毒咬死 9 血巨人");
+        assertTrue(logs.stream().anyMatch(l -> l.contains("剧毒")));
+    }
+
+    @Test
+    void shieldBlocksPoison() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard snake = minion("毒蛇", 2, 2, Keyword.POISONOUS);
+        snake.setSummoningSickness(false);
+        self.getField().add(snake);
+        MinionCard guarded = minion("圣盾兵", 2, 5, Keyword.DIVINE_SHIELD);
+        foe.getField().add(guarded);
+        List<String> logs = new ArrayList<>();
+
+        assertTrue(engine.attack(self, foe, snake, guarded, logs::add));
+        assertTrue(foe.getField().contains(guarded), "圣盾挡下，剧毒不触发");
+        assertFalse(guarded.hasDivineShield());
+    }
+
+    @Test
+    void chargeWindfuryActsImmediatelyAndTwice() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard storm = minion("风暴", 2, 2, Keyword.CHARGE, Keyword.WINDFURY);
+        self.getHand().add(storm);
+        List<String> logs = new ArrayList<>();
+
+        assertTrue(engine.playMinion(self, storm, logs::add));
+        assertTrue(engine.attack(self, foe, storm, null, logs::add), "冲锋上场即打");
+        assertTrue(engine.attack(self, foe, storm, null, logs::add), "风怒同回合再打");
+        assertEquals(PlayerState.START_LIFE - 4, foe.getLifePoints());
+    }
+
+    @Test
+    void tauntShieldWallMustBeBrokenFirst() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard attacker = minion("打手", 5, 5);
+        attacker.setSummoningSickness(false);
+        self.getField().add(attacker);
+        MinionCard wall = minion("圣盾墙", 0, 6, Keyword.TAUNT, Keyword.DIVINE_SHIELD);
+        MinionCard backline = minion("后排", 3, 3);
+        foe.getField().addAll(List.of(wall, backline));
+        List<String> logs = new ArrayList<>();
+
+        // 第一刀破盾（墙还在，嘲讽仍在）
+        assertTrue(engine.attack(self, foe, attacker, wall, logs::add));
+        assertTrue(foe.getField().contains(wall));
+        assertFalse(engine.attack(self, foe, attacker, backline, logs::add),
+                "墙没倒，后排碰不得");
+    }
 }

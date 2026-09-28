@@ -8,6 +8,7 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Circle;
+import org.example.card.engine.ActionValidator;
 import org.example.card.engine.CombatResolver;
 import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;
@@ -86,6 +87,15 @@ public class MinionView extends StackPane {
         if (minion.hasKeyword(Keyword.TAUNT)) {
             getStyleClass().add("minion-taunt");
         }
+        // 圣盾立着时左上角挂“盾”字（与顶部 Zzz/已动不撞位）
+        if (minion.hasDivineShield()) {
+            Label shield = new Label("盾");
+            shield.getStyleClass().add("minion-shield-text");
+            shield.setMouseTransparent(true);
+            StackPane.setAlignment(shield, Pos.TOP_LEFT);
+            StackPane.setMargin(shield, new Insets(3, 0, 0, 5));
+            getChildren().add(shield);
+        }
         if (minion.isSummoningSickness()) {
             getStyleClass().add("minion-sick");
             Label sick = new Label("Zzz");
@@ -94,8 +104,8 @@ public class MinionView extends StackPane {
             StackPane.setAlignment(sick, Pos.TOP_CENTER);
             StackPane.setMargin(sick, new Insets(2, 0, 0, 0));
             getChildren().add(sick);
-        } else if (minion.isAttackedThisTurn()) {
-            // 本回合已经出过手：压暗，提示"这只已经动过了"
+        } else if (!ActionValidator.isReadyToAttack(minion)) {
+            // 本回合已经出完手（风怒出手 1 次后仍可再出手，不压暗）：提示"这只已经动过了"
             getStyleClass().add("minion-spent");
             Label spent = new Label("已动");
             spent.getStyleClass().add("minion-spent-text");

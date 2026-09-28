@@ -25,5 +25,14 @@ public enum Keyword {
     BATTLECRY,
 
     /** 亡语：阵亡时触发（走 TriggerSystem.ON_DEATH，结算由注册的 Trigger 实现）。 */
-    DEATHRATTLE
+    DEATHRATTLE,
+
+    /** 圣盾：抵消下一次受到的伤害（状态在随从实例上，不怕复制）。 */
+    DIVINE_SHIELD,
+
+    /** 风怒：每回合可攻击 2 次。 */
+    WINDFURY,
+
+    /** 剧毒：对随从造成伤害即摧毁（不论血量；圣盾挡下则不触发）。 */
+    POISONOUS
 }
