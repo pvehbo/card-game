@@ -29,3 +29,9 @@ dist/
 
 # 工作底稿（含本机路径，不进仓库）
 docs/AI_PLAN.md
+
+### WorkBuddy 本地工作区（记忆/计划底稿，不进仓库）###
+.workbuddy/
+
+### AI 生成原稿（正式资源在 src/main/resources/images/，原稿本地留存）###
+generated-images/
