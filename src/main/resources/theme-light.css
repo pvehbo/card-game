@@ -354,10 +354,15 @@
 }
 
 .status-banner {
-    -fx-text-fill: #8a6a1a;
+    -fx-text-fill: #3a2f10;
     -fx-font-size: 14px;
     -fx-font-weight: bold;
-    -fx-effect: dropshadow(gaussian, rgba(138, 106, 26, 0.4), 10, 0.35, 0, 0);
+    /* 亮色底图是浅色石地，这行还可能被挤到按钮行尾：给字垫一层浅色衬底，放哪都读得清 */
+    -fx-background-color: rgba(255, 252, 240, 0.86);
+    -fx-background-radius: 6;
+    -fx-border-color: rgba(138, 106, 26, 0.35);
+    -fx-border-radius: 6;
+    -fx-padding: 1 8 1 8;
 }
 
 .damage-float {
@@ -385,6 +390,9 @@
 }
 
 .pile-info {
-    -fx-text-fill: #6a6a72;
+    -fx-text-fill: #3f3b33;
     -fx-font-size: 12px;
+    -fx-background-color: rgba(255, 252, 240, 0.78);
+    -fx-background-radius: 6;
+    -fx-padding: 1 8 1 8;
 }
