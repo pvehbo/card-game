@@ -23,7 +23,7 @@ public final class StatsView {
     private StatsView() {
     }
 
-    public static void show(Window owner, StatsService stats) {
+    public static void show(Window owner, StatsService stats, String stylesheetUrl) {
         Stage stage = new Stage();
         stage.setTitle("战绩与成就");
         stage.initModality(Modality.APPLICATION_MODAL);
@@ -62,9 +62,8 @@ public final class StatsView {
         root.setPadding(new Insets(12));
         root.setAlignment(Pos.TOP_CENTER);
         Scene scene = new Scene(root, 420, 480);
-        var css = StatsView.class.getResource("/app.css");
-        if (css != null) {
-            scene.getStylesheets().add(css.toExternalForm());
+        if (stylesheetUrl != null) {
+            scene.getStylesheets().add(stylesheetUrl);
         }
         stage.setScene(scene);
         stage.showAndWait();

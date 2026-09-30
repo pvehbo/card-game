@@ -25,8 +25,14 @@ public final class TurnController {
     public void openGame(GameSession session, boolean playerFirst,
                          Consumer<String> log, boolean deferFirstTurn) {
         session.setYourTurn(playerFirst);
-        if (playerFirst && !deferFirstTurn) {
+        if (deferFirstTurn) {
+            return;
+        }
+        if (playerFirst) {
             engine.startPlayerTurn(session.getPlayer(), session.getAi(), log);
+            engine.grantSecondMoveBonus(session.getAi(), log);
+        } else {
+            engine.grantSecondMoveBonus(session.getPlayer(), log);
         }
     }
 

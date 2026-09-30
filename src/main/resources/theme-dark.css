@@ -33,6 +33,12 @@
     -fx-font-weight: bold;
 }
 
+.error-text {
+    -fx-text-fill: #ff6b6b;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
 /* ---------- 区域面板：石质卡片 ---------- */
 .panel {
     -fx-background-color: linear-gradient(to bottom, rgba(58, 48, 78, 0.55), rgba(28, 22, 40, 0.75));

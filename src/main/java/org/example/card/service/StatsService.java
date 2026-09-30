@@ -27,7 +27,10 @@ public final class StatsService {
         WIPE_4("wipe_4", "满门抄斩", "一回合清空对方 ≥4 随从"),
         LOW_HP_COMEBACK("low_hp", "绝地反击", "己方英雄 ≤5 血时反杀获胜"),
         GIANT_SLAYER("giant_slayer", "巨人杀手", "击败困难 AI"),
-        MARATHON_15("marathon_15", "老谋深算", "单局打满 15 回合后获胜");
+        MARATHON_15("marathon_15", "老谋深算", "单局打满 15 回合后获胜"),
+        SECOND_WIND("second_wind", "后发制人", "后手获胜"),
+        PERFECT_GUARD("perfect_guard", "金身不破", "满血获胜"),
+        SWIFT_5("swift_5", "速战速决", "5 回合内获胜");
 
         private final String id;
         private final String name;
@@ -110,6 +113,9 @@ public final class StatsService {
         check(fresh, Achievement.LOW_HP_COMEBACK, result.won() && result.playerLife() <= 5);
         check(fresh, Achievement.GIANT_SLAYER, result.won() && result.hardMode());
         check(fresh, Achievement.MARATHON_15, result.won() && result.turns() >= 15);
+        check(fresh, Achievement.SECOND_WIND, result.won() && !result.playerFirst());
+        check(fresh, Achievement.PERFECT_GUARD, result.won() && result.playerLife() >= 20);
+        check(fresh, Achievement.SWIFT_5, result.won() && result.turns() <= 5);
         return fresh;
     }
 

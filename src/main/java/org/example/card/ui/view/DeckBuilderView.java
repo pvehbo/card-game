@@ -30,7 +30,8 @@ public final class DeckBuilderView {
     private DeckBuilderView() {
     }
 
-    public static void show(Window owner, List<String> initialIds, Consumer<List<String>> onDone) {
+    public static void show(Window owner, List<String> initialIds, Consumer<List<String>> onDone,
+            String stylesheetUrl) {
         DeckBuilder builder = new DeckBuilder();
         if (initialIds != null && !initialIds.isEmpty()) {
             try {
@@ -77,7 +78,7 @@ public final class DeckBuilderView {
         ListView<String> deckView = new ListView<>();
         Label countLabel = new Label();
         Label errorLabel = new Label();
-        errorLabel.setStyle("-fx-text-fill: #ff8a8a;");
+        errorLabel.getStyleClass().add("error-text");
         HBox curveBox = new HBox(4);
         curveBox.setAlignment(Pos.BOTTOM_CENTER);
         Runnable refreshDeck = () -> {
@@ -154,9 +155,8 @@ public final class DeckBuilderView {
         root.setPadding(new Insets(12));
         root.setAlignment(Pos.TOP_CENTER);
         Scene scene = new Scene(root, 680, 520);
-        var css = DeckBuilderView.class.getResource("/app.css");
-        if (css != null) {
-            scene.getStylesheets().add(css.toExternalForm());
+        if (stylesheetUrl != null) {
+            scene.getStylesheets().add(stylesheetUrl);
         }
         stage.setScene(scene);
         stage.showAndWait();

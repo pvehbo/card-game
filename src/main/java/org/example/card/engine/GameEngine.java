@@ -82,6 +82,15 @@ public class GameEngine {
         endAiTurn(self, foe, log);
     }
 
+    /**
+     * 后手补偿（B-后手补偿）：后手开局多抽 1 张，规则与 DRAW 一致
+     * （满 10 张烧掉、空堆无事发生），并走 DRAW/BURN 事件。
+     */
+    public void grantSecondMoveBonus(PlayerState secondMover, Consumer<String> log) {
+        log.accept("后手补偿：后手多抽 1 张");
+        drawPhase(secondMover, log);
+    }
+
     /** AI 回合起手：回合数 +1、重置出牌次数、发布 TURN_START、抽 1 张。 */
     public void beginAiTurn(PlayerState self, Consumer<String> log) {
         turn++;
@@ -370,7 +379,7 @@ public class GameEngine {
                         self.getGraveyard().add(card);
                         String msg = "手牌已满，烧掉：" + card;
                         log.accept(msg);
-                        eventBus.publish(GameEvent.of(GameEvent.Type.BURN, msg));
+                        eventBus.publish(GameEvent.burn(self, card, msg));
                     } else {
                         self.getHand().add(card);
                         String msg = "抽卡：+" + card;

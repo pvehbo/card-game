@@ -55,6 +55,11 @@ public record GameEvent(
         return new GameEvent(Type.DRAW, who, null, card, null, null, 0, message);
     }
 
+    /** 烧牌（手牌满时抽到的那张直接进墓地）：带 owner/card，界面才能定位是哪一侧满手。 */
+    public static GameEvent burn(PlayerState owner, Card card, String message) {
+        return new GameEvent(Type.BURN, owner, null, card, null, null, 0, message);
+    }
+
     public static GameEvent summon(PlayerState who, MinionCard minion, String message) {
         return new GameEvent(Type.SUMMON, who, null, minion, null, null, 0, message);
     }

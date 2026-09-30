@@ -87,7 +87,8 @@ public class HeroView extends VBox {
 
         lifeLabel = new Label(player.getLifePoints() + " / " + PlayerState.START_LIFE);
         lifeLabel.getStyleClass().add("subtle-text");
-        lifeLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #e8d5a8;");
+        // 颜色走 subtle-text 主题类（亮主题下深灰），这里只定字号，避免亮底金字看不清
+        lifeLabel.setStyle("-fx-font-size: 12px;");
 
         petLabel = new Label();
         petLabel.getStyleClass().add("pet-chip");

@@ -64,7 +64,7 @@ class SessionTest {
 
         assertTrue(session.isYourTurn());
         assertEquals(4, session.getPlayer().getHand().size(), "玩家先手开局抽 1 张");
-        assertEquals(3, session.getAi().getHand().size());
+        assertEquals(4, session.getAi().getHand().size(), "后手补偿：AI 多抽 1 张");
     }
 
     @Test
@@ -75,7 +75,8 @@ class SessionTest {
         controller.openGame(session, false, QUIET, false);
 
         assertFalse(session.isYourTurn());
-        assertEquals(3, session.getPlayer().getHand().size(), "AI 先手时玩家还没抽");
+        assertEquals(4, session.getPlayer().getHand().size(), "后手补偿：玩家多抽 1 张");
+        assertEquals(3, session.getAi().getHand().size(), "AI 先手回合尚未开始，不抽");
     }
 
     @Test

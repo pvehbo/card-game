@@ -62,7 +62,7 @@ import java.util.Optional;
 import java.util.Random;
 
 /**
- * 炉石式卡牌游戏（暗色奇幻风）玩家 vs AI。
+ * 炉石式卡牌游戏（暗色奇幻 / 亮色原野双主题）玩家 vs AI。
  *
  * 操作：点手牌出牌；点己方随从选攻击者，再点对方随从/对方英雄攻击；点“结束回合”。
  */
@@ -92,6 +92,11 @@ public class CardGameApp extends Application {
     private ParticleLayer particleLayer;
     private Pane fxLayer;
     private Button soundButton;
+    /** 当前主题（启动时从配置读盘，工具栏按钮即时切换并落盘）。 */
+    private Theme theme = Theme.DARK;
+    private Button themeButton;
+    /** 战场背景图层（换主题时移除重建，保持在最底层）。 */
+    private javafx.scene.image.ImageView bgView;
     /** 用户配置（音效开关等，启动时读盘、切换时落盘）。 */
     private final ConfigService config = new ConfigService();
     /** 数据统计（启动时读盘，终局时记录落盘；自动对局不计入）。 */
@@ -138,6 +143,43 @@ public class CardGameApp extends Application {
     private String soundLabel() {
         return I18n.get(SoundEngine.isEnabled() ? "sound.on" : "sound.off");
     }
+
+    private String themeLabel() {
+        return "主题：" + (theme.isLight() ? "亮色" : "暗色");
+    }
+
+    /** 切换主题：换样式表 + 换背景 + 改标题（同一局即时生效，无需重开）。 */
+    private void applyTheme(Stage stage) {
+        if (handBox.getScene() == null) {
+            return;
+        }
+        javafx.scene.Scene scene = handBox.getScene();
+        scene.getStylesheets().clear();
+        String themeCss = theme.cssUrl();
+        if (themeCss != null) {
+            scene.getStylesheets().add(themeCss);
+        }
+        installBackground((StackPane) scene.getRoot());
+        stage.setTitle("Card Game · " + (theme.isLight() ? "亮色原野" : "暗色奇幻"));
+        themeButton.setText(themeLabel());
+    }
+
+    /** 安装/更换背景图层：永远插到最底层，粒子层与特效层不受影响。 */
+    private void installBackground(StackPane sceneRoot) {
+        if (bgView != null) {
+            sceneRoot.getChildren().remove(bgView);
+            bgView = null;
+        }
+        Assets.background(theme.isLight()).ifPresent(bg -> {
+            bgView = new javafx.scene.image.ImageView(bg);
+            bgView.setPreserveRatio(false);
+            bgView.setSmooth(true);
+            bgView.setMouseTransparent(true);
+            bgView.fitWidthProperty().bind(sceneRoot.widthProperty());
+            bgView.fitHeightProperty().bind(sceneRoot.heightProperty());
+            sceneRoot.getChildren().add(0, bgView);
+        });
+    }
     /** 胜负只播报一次（引擎事件与界面自检都会触发）。 */
     private boolean announcedOver;
     /** 自动对局（冒烟测试）每步间隔。 */
@@ -152,6 +194,8 @@ public class CardGameApp extends Application {
         // 用户配置先行：音效开关读盘（文件缺失/损坏则用默认值，不影响启动）
         config.load();
         SoundEngine.setEnabled(config.isSoundEnabled());
+        // 诊断覆盖：-Dui.theme=light|dark 可强制指定主题（截图/冒烟用，不落盘）
+        theme = Theme.fromId(System.getProperty("ui.theme", config.getThemeId()));
         // 战绩读盘（文件缺失/损坏则从零计数）
         loadStats();
         String savedDeck = config.getDeckIds();
@@ -181,6 +225,17 @@ public class CardGameApp extends Application {
             if (SoundEngine.isEnabled()) {
                 SoundEngine.play(Sfx.TURN);
             }
+        });
+
+        // 主题切换：即时换肤 + 落盘，下次启动沿用（对局不中断）
+        themeButton = new Button(themeLabel());
+        themeButton.getStyleClass().add("btn");
+        themeButton.setOnAction(e -> {
+            theme = theme.toggle();
+            config.setThemeId(theme.id());
+            config.save();
+            applyTheme(stage);
+            log("已切换主题：" + (theme.isLight() ? "亮色原野" : "暗色奇幻"));
         });
 
         statusLabel.getStyleClass().add("status-banner");
@@ -234,7 +289,8 @@ public class CardGameApp extends Application {
         Button statsButton = new Button("战绩");
         statsButton.getStyleClass().add("btn");
         statsButton.setOnAction(e -> org.example.card.ui.view.StatsView.show(
-                handBox.getScene() != null ? handBox.getScene().getWindow() : null, stats));
+                handBox.getScene() != null ? handBox.getScene().getWindow() : null, stats,
+                theme.cssUrl()));
 
         // 回放控制条（平时隐藏）：上一步 / 播放暂停 / 下一步 / 退出回放
         Button prevButton = new Button("上一步");
@@ -257,7 +313,7 @@ public class CardGameApp extends Application {
         // 按钮多了放不下：可换行，窄窗口自动折两行
         javafx.scene.layout.FlowPane controls = new javafx.scene.layout.FlowPane(
                 javafx.geometry.Orientation.HORIZONTAL, 12, 4,
-                startButton, endTurnButton, soundButton, levelBox,
+                startButton, endTurnButton, soundButton, themeButton, levelBox,
                 loadButton, replayButton, deckButton, statsButton, statusLabel, pileLabel);
         controls.setAlignment(Pos.CENTER_LEFT);
         controls.setPadding(new Insets(6, 4, 0, 4));
@@ -280,16 +336,8 @@ public class CardGameApp extends Application {
             sceneRoot.setStyle(fontCss);
         }
 
-        // 背景图（可选）：提供 images/backgrounds/board.jpg 就自动铺满
-        Assets.background().ifPresent(bg -> {
-            javafx.scene.image.ImageView bgView = new javafx.scene.image.ImageView(bg);
-            bgView.setPreserveRatio(false);
-            bgView.setSmooth(true);
-            bgView.setMouseTransparent(true);
-            bgView.fitWidthProperty().bind(sceneRoot.widthProperty());
-            bgView.fitHeightProperty().bind(sceneRoot.heightProperty());
-            sceneRoot.getChildren().add(bgView);
-        });
+        // 背景图（可选）：随当前主题铺底（亮主题优先 board-light.*，缺失回退暗色）
+        installBackground(sceneRoot);
         sceneRoot.getChildren().add(root);
 
         // 粒子层：覆盖在最上方，鼠标穿透
@@ -329,12 +377,12 @@ public class CardGameApp extends Application {
         vm.onChange(this::refresh);
 
         Scene scene = new Scene(sceneRoot, 1000, 760);
-        var css = getClass().getResource("/app.css");
-        if (css != null) {
-            scene.getStylesheets().add(css.toExternalForm());
+        String themeCss = theme.cssUrl();
+        if (themeCss != null) {
+            scene.getStylesheets().add(themeCss);
         }
 
-        stage.setTitle("Card Game · 暗色奇幻");
+        stage.setTitle("Card Game · " + (theme.isLight() ? "亮色原野" : "暗色奇幻"));
         stage.setScene(scene);
         stage.show();
 
@@ -430,7 +478,7 @@ public class CardGameApp extends Application {
                     config.setDeckIds(String.join(",", customDeckIds));
                     config.save();
                     log("牌组已更新（" + customDeckIds.size() + " 张），下局开局生效。");
-                });
+                }, theme.cssUrl());
     }
 
     /** 解析自定义牌组：合法返回牌表，否则 null（用标准并提示）。 */

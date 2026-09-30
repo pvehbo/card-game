@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## v1.5.0（双主题版）
+
+口号：一套内容，两种皮肤；先手不再稳赢。本版主线是美术资源 + 主题系统，另附一条平衡调整。
+
+### 双主题系统（V3）
+- 暗 / 亮两套 CSS：`theme-dark.css`（默认）/ `theme-light.css`（羊皮纸配色），
+  工具栏一键切换，选择落盘（`ConfigService.ui.theme`），下次启动即恢复
+- `ui/Theme` 枚举是唯一真相源（id / cssPath / isLight / cssUrl / toggle / fromId）：
+  资源缺失时 `cssUrl()` 返回 null 直接回退暗主题，未知 id 也回退暗主题，不会白屏
+- 亮主题背景优先 `backgrounds/board-light.jpg`，缺图回退 `board.jpg`；再缺回退程序化图形
+- 诊断开关 `-Dui.theme=light|dark` 可预设主题（只覆盖本次运行，不落盘）
+- `ThemeTest` + `ConfigThemeTest` 锁定切换、持久化与容错路径
+
+### 美术资源包（V0 / V1 / V2）
+- 30 张卡图（512×716）+ 玩家/AI 头像（256×256）+ 亮暗双背景（1920×1080），逐张 `sips` 核验尺寸
+- 规格冻结在 [`docs/ASSETS-v1.5.md`](ASSETS-v1.5.md)；`AssetsCoverageTest` 逐卡 id 锁定资源存在性
+- 查找链与命名规范见 `resources/images/README.md`：**替换即生效，删除即回退**
+
+### 平衡：后手补偿
+- 后手开局多抽 1 张（规则与普通抽牌一致：满 10 张烧掉并发 BURN 事件、空牌堆无事发生）
+- 桌面演示/截图模式（`deferFirstTurn`）不补牌，避免打乱摆好的演示局面
+- 天梯先手优势从 ~60% 继续回落，不再出现「先手稳赢」；`SecondMoveBonusTest` 覆盖三种边界
+
+### 成就 8 → 11
+- 新增「后发制人」（后手获胜）/「金身不破」（满血获胜）/「速战速决」（≤5 回合获胜）
+- `GameResult` 字段复用，界面与存档格式零改动
+
+### 其他
+- 测试 110 → 122 用例，全绿
+
 ## v1.4.0（成长版）
 
 口号：看得见成长，打不腻的牌。零新系统，全部复用现有流水线。

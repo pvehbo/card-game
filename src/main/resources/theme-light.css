@@ -1,0 +1,390 @@
+/* ============================================================
+   CardGame 亮色原野主题
+   羊皮纸底 + 青铜镶边 + 日光高光（与 theme-dark.css 选择器一一对应）
+   ============================================================ */
+
+.root {
+    /* 注意：中文字体由 Fonts.java 在运行时探测后设置（CSS 的多字体回退在部分平台会失效导致乱码） */
+    -fx-background-color:
+        radial-gradient(center 50% 35%, radius 75%,
+            #f7efdc 0%, #e4d4b4 45%, #c7b086 100%);
+}
+
+/* ---------- 通用文字 ---------- */
+.title-text {
+    -fx-text-fill: #6b4d1a;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(122, 90, 40, 0.35), 12, 0.3, 0, 0);
+}
+
+.subtle-text {
+    -fx-text-fill: #6a6a72;
+    -fx-font-size: 12px;
+}
+
+.gold-text {
+    -fx-text-fill: #8a6a1a;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(138, 106, 26, 0.4), 14, 0.4, 0, 0);
+}
+
+.danger-text {
+    -fx-text-fill: #c0392b;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.error-text {
+    -fx-text-fill: #c0392b;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+/* ---------- 面板 ---------- */
+.panel {
+    -fx-background-color:
+        linear-gradient(to bottom,
+            rgba(253, 250, 242, 0.94) 0%,
+            rgba(240, 227, 196, 0.94) 60%,
+            rgba(217, 198, 156, 0.94) 100%);
+    -fx-background-radius: 10;
+    -fx-border-color: #b09a6a;
+    -fx-border-width: 2;
+    -fx-border-radius: 10;
+    -fx-padding: 8;
+    -fx-effect: dropshadow(gaussian, rgba(90, 70, 40, 0.35), 10, 0.3, 0, 2);
+}
+
+.battlefield {
+    -fx-background-color:
+        linear-gradient(to bottom,
+            rgba(226, 236, 214, 0.95) 0%,
+            rgba(199, 216, 182, 0.95) 55%,
+            rgba(172, 194, 152, 0.95) 100%);
+    -fx-background-radius: 12;
+    -fx-border-color: #7a9a6a;
+    -fx-border-width: 2.5;
+    -fx-border-radius: 12;
+    -fx-padding: 10;
+    -fx-effect: dropshadow(gaussian, rgba(60, 90, 50, 0.35), 12, 0.3, 0, 2);
+}
+
+.slot-empty {
+    -fx-text-fill: #8a8a92;
+    -fx-font-size: 13px;
+    -fx-border-color: rgba(90, 90, 100, 0.5);
+    -fx-border-width: 1.5;
+    -fx-border-style: dashed;
+    -fx-border-radius: 8;
+    -fx-background-color: rgba(255, 255, 255, 0.25);
+    -fx-background-radius: 8;
+    -fx-padding: 6 18 6 18;
+}
+
+/* ============================================================
+   手牌
+   ============================================================ */
+.card {
+    -fx-background-color:
+        linear-gradient(to bottom,
+            #fdfaf2 0%, #f0e3c6 55%, #d9c69c 100%);
+    -fx-background-radius: 8;
+    -fx-border-color: #8a6f3f;
+    -fx-border-width: 2;
+    -fx-border-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(90, 70, 40, 0.45), 8, 0.3, 0, 2);
+}
+
+.card:hover {
+    -fx-border-color: #a8862f;
+    -fx-effect: dropshadow(gaussian, rgba(168, 134, 47, 0.8), 14, 0.5, 0, 0);
+}
+
+.card-selected {
+    -fx-border-color: #2f6db3;
+    -fx-border-width: 3;
+    -fx-effect: dropshadow(gaussian, rgba(47, 109, 179, 0.85), 16, 0.55, 0, 0);
+}
+
+.card-disabled {
+    -fx-opacity: 0.45;
+    -fx-effect: innershadow(gaussian, rgba(120, 120, 120, 0.7), 12, 0.5, 0, 0);
+}
+
+.card-name {
+    -fx-text-fill: #3a2c14;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.card-desc {
+    -fx-text-fill: #6a5f48;
+    -fx-font-size: 10.5px;
+}
+
+.cost-circle {
+    -fx-fill: linear-gradient(to bottom, #3d6db5 0%, #274b85 100%);
+    -fx-stroke: #8a6f3f;
+    -fx-stroke-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(39, 75, 133, 0.6), 6, 0.4, 0, 1);
+}
+
+.cost-text {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.8), 4, 0.7, 0, 1);
+}
+
+.card-art {
+    -fx-border-color: rgba(120, 100, 60, 0.55);
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+}
+
+/* 无立绘时的类型兜底底色 */
+.art-minion { -fx-background-color: linear-gradient(to bottom, #c99e6b 0%, #8a5f3a 60%, #54391f 100%); }
+.art-spell  { -fx-background-color: linear-gradient(to bottom, #7fa8d8 0%, #4a6fa0 60%, #2c4468 100%); }
+.art-pet    { -fx-background-color: linear-gradient(to bottom, #a8b878 0%, #6f7f48 60%, #424d28 100%); }
+
+.art-glyph {
+    -fx-text-fill: #3a2c14;
+    -fx-font-size: 34px;
+    -fx-effect: dropshadow(gaussian, rgba(255, 250, 235, 0.8), 6, 0.6, 0, 0);
+}
+
+/* ============================================================
+   战场随从（含嘲讽/圣盾/召唤失调/已行动/徽章）
+   ============================================================ */
+.minion {
+    -fx-background-color:
+        radial-gradient(center 50% 35%, radius 80%,
+            #eef4e2 0%, #c2d6ae 55%, #8ba877 100%);
+    -fx-background-radius: 40;
+    -fx-border-color: #2f6b2f;
+    -fx-border-width: 2;
+    -fx-border-radius: 40;
+    -fx-effect: dropshadow(gaussian, rgba(60, 90, 50, 0.5), 8, 0.35, 0, 2);
+}
+
+.minion:hover {
+    -fx-border-color: #a8862f;
+    -fx-effect: dropshadow(gaussian, rgba(168, 134, 47, 0.8), 12, 0.5, 0, 0);
+}
+
+.minion-attacker {
+    -fx-border-color: #2f6db3;
+    -fx-border-width: 3;
+    -fx-effect: dropshadow(gaussian, rgba(47, 109, 179, 0.85), 14, 0.55, 0, 0);
+}
+
+.minion-target {
+    -fx-border-color: #c0392b;
+    -fx-border-width: 3;
+    -fx-effect: dropshadow(gaussian, rgba(192, 57, 43, 0.85), 14, 0.55, 0, 0);
+}
+
+.minion-taunt {
+    -fx-border-color: #a8862f;
+    -fx-border-width: 3;
+}
+
+.minion-shield {
+    -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.9), 10, 0.6, 0, 0);
+}
+
+.minion-shield-text {
+    -fx-text-fill: #1a5a9a;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.minion-sick,
+.minion-spent {
+    -fx-background-color:
+        radial-gradient(center 50% 35%, radius 80%,
+            #d8d8de 0%, #a8a8b2 60%, #74747e 100%);
+    -fx-border-color: #6a6a72;
+}
+
+.minion-spent-text {
+    -fx-text-fill: #55555e;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.minion-name {
+    -fx-text-fill: #1f3a1f;
+    -fx-font-size: 11px;
+    -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.7), 3, 0.6, 0, 1);
+}
+
+.badge-attack {
+    -fx-fill: linear-gradient(to bottom, #c0392b 0%, #7e2318 100%);
+    -fx-stroke: #f5e9d2;
+    -fx-stroke-width: 1.5;
+}
+
+.badge-health {
+    -fx-fill: linear-gradient(to bottom, #3fae5a 0%, #1f6e33 100%);
+    -fx-stroke: #f5e9d2;
+    -fx-stroke-width: 1.5;
+}
+
+.badge-value {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.85), 3, 0.7, 0, 1);
+}
+
+.badge-health-hurt {
+    -fx-fill: linear-gradient(to bottom, #d35450 0%, #8e2f2b 100%);
+}
+
+/* ============================================================
+   英雄区
+   ============================================================ */
+.hero-frame {
+    -fx-background-color:
+        linear-gradient(to bottom,
+            #f2ecdd 0%, #d8c9a6 60%, #b3a077 100%);
+    -fx-background-radius: 10;
+    -fx-border-color: #8a6f3f;
+    -fx-border-width: 2;
+    -fx-border-radius: 10;
+    -fx-padding: 6;
+    -fx-effect: dropshadow(gaussian, rgba(90, 70, 40, 0.4), 8, 0.3, 0, 2);
+}
+
+.hero-frame-active {
+    -fx-border-color: #a8862f;
+    -fx-effect: dropshadow(gaussian, rgba(168, 134, 47, 0.8), 14, 0.5, 0, 0);
+}
+
+.hero-frame-target {
+    -fx-border-color: #c0392b;
+    -fx-effect: dropshadow(gaussian, rgba(192, 57, 43, 0.85), 14, 0.55, 0, 0);
+}
+
+.hero-glyph {
+    -fx-text-fill: #6b4d1a;
+    -fx-font-size: 30px;
+    -fx-effect: dropshadow(gaussian, rgba(255, 250, 235, 0.8), 6, 0.6, 0, 0);
+}
+
+.health-bar-track {
+    -fx-fill: rgba(255, 255, 255, 0.65);
+    -fx-stroke: #8a8a92;
+    -fx-stroke-width: 1;
+}
+
+.health-bar-fill {
+    -fx-fill: linear-gradient(to right, #3fae5a 0%, #7fd08a 100%);
+}
+
+.health-bar-fill-hurt {
+    -fx-fill: linear-gradient(to right, #c9a13b 0%, #e8c96b 100%);
+}
+
+.health-bar-fill-low {
+    -fx-fill: linear-gradient(to right, #c0392b 0%, #e86b5a 100%);
+}
+
+/* ============================================================
+   按钮 / 日志 / 横幅 / 飘字
+   ============================================================ */
+.btn {
+    -fx-background-color:
+        linear-gradient(to bottom,
+            #fbf6ea 0%, #e6d6b4 55%, #cbb37f 100%);
+    -fx-background-radius: 6;
+    -fx-text-fill: #4a3a1a;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-border-color: #8a6f3f;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 6;
+    -fx-padding: 5 14 5 14;
+    -fx-cursor: hand;
+}
+
+.btn:hover {
+    -fx-background-color:
+        linear-gradient(to bottom,
+            #fffbef 0%, #f0e0bd 60%, #d9c48f 100%);
+    -fx-border-color: #a8862f;
+}
+
+.btn:disabled {
+    -fx-opacity: 0.45;
+    -fx-effect: innershadow(gaussian, rgba(120, 120, 120, 0.7), 8, 0.5, 0, 0);
+}
+
+.btn-primary {
+    -fx-background-color:
+        linear-gradient(to bottom,
+            #a8842f 0%, #7a5f1e 60%, #54400f 100%);
+    -fx-text-fill: #fff3d0;
+    -fx-border-color: #6b4d1a;
+    -fx-border-width: 2;
+}
+
+.btn-primary:hover {
+    -fx-background-color:
+        linear-gradient(to bottom,
+            #c09a3a 0%, #8a6d24 60%, #5f4a14 100%);
+}
+
+.log-view {
+    -fx-control-inner-background: #fbf8ef;
+    -fx-background-color: #fbf8ef;
+    -fx-text-fill: #4a4438;
+    -fx-font-size: 12px;
+    -fx-border-color: #b09a6a;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+.log-view .content {
+    -fx-background-color: #fbf8ef;
+}
+
+.status-banner {
+    -fx-text-fill: #8a6a1a;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(138, 106, 26, 0.4), 10, 0.35, 0, 0);
+}
+
+.damage-float {
+    -fx-text-fill: #d02020;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.9), 6, 0.7, 0, 0);
+}
+
+.heal-float {
+    -fx-text-fill: #1a9e4a;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.9), 6, 0.7, 0, 0);
+}
+
+.pet-chip {
+    -fx-background-color: rgba(138, 106, 26, 0.18);
+    -fx-background-radius: 8;
+    -fx-text-fill: #6b4d1a;
+    -fx-font-size: 11px;
+    -fx-padding: 1 8 1 8;
+    -fx-border-color: rgba(138, 106, 26, 0.5);
+    -fx-border-radius: 8;
+}
+
+.pile-info {
+    -fx-text-fill: #6a6a72;
+    -fx-font-size: 12px;
+}

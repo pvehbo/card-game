@@ -10,7 +10,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** W1 统计与成就：计数、连胜、8 成就触发与不触发、文件往返、损坏归零。 */
+/** W1 统计与成就：计数、连胜、11 成就触发与不触发、文件往返、损坏归零。 */
 class StatsServiceTest {
 
     private static StatsService.GameResult win(boolean hard, boolean first) {
@@ -61,6 +61,23 @@ class StatsServiceTest {
         List<StatsService.Achievement> third = stats.recordGame(win(false, true), "NORMAL");
         assertTrue(third.stream().anyMatch(a -> a.id().equals("streak_3")));
         assertEquals(3, stats.streak());
+    }
+
+    @Test
+    void newAchievementsSecondWindPerfectSwift() {
+        StatsService stats = new StatsService();
+        var second = new StatsService.GameResult(true, false, false, false, 0, 10, 8);
+        assertTrue(stats.recordGame(second, "NORMAL").stream()
+                .anyMatch(a -> a.id().equals("second_wind")), "后手获胜解锁后发制人");
+        var perfect = new StatsService.GameResult(true, false, true, false, 0, 20, 8);
+        assertTrue(stats.recordGame(perfect, "NORMAL").stream()
+                .anyMatch(a -> a.id().equals("perfect_guard")), "满血获胜解锁金身不破");
+        var swift = new StatsService.GameResult(true, false, true, false, 0, 10, 5);
+        assertTrue(stats.recordGame(swift, "NORMAL").stream()
+                .anyMatch(a -> a.id().equals("swift_5")), "5 回合内获胜解锁速战速决");
+        var slow = new StatsService.GameResult(true, false, true, false, 0, 10, 6);
+        assertTrue(stats.recordGame(slow, "NORMAL").stream()
+                .noneMatch(a -> a.id().equals("swift_5")), "6 回合不算速战");
     }
 
     @Test

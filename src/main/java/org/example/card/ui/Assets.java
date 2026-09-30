@@ -48,8 +48,24 @@ public final class Assets {
         return firstOf(BASE + "heroes/" + key + ".png", BASE + "heroes/" + key + ".jpg");
     }
 
-    /** 战场背景。 */
+    /** 战场背景（默认暗色）。 */
     public static Optional<Image> background() {
+        return background(false);
+    }
+
+    /**
+     * 战场背景：亮主题优先 {@code board-light.*}，缺失时回退暗色 {@code board.*}。
+     *
+     * @param light 当前是否为亮主题
+     */
+    public static Optional<Image> background(boolean light) {
+        if (light) {
+            Optional<Image> lightBg = firstOf(
+                    BASE + "backgrounds/board-light.png", BASE + "backgrounds/board-light.jpg");
+            if (lightBg.isPresent()) {
+                return lightBg;
+            }
+        }
         return firstOf(BASE + "backgrounds/board.png", BASE + "backgrounds/board.jpg");
     }
 
