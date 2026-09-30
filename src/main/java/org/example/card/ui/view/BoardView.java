@@ -67,14 +67,14 @@ public final class BoardView {
         refreshAiZone();
         refreshPlayerZone();
         refreshHand();
-        PlayerState player = vm.session().getPlayer();
+        PlayerState player = vm.me();
         pileLabel.setText("牌堆 " + player.getDeck().size() + " · 墓地 "
                 + player.getGraveyard().size() + " · 法力 " + player.getMana()
                 + "/" + player.getMaxMana() + " · 第 " + Math.max(1, vm.turn()) + " 回合");
     }
 
     private void refreshAiZone() {
-        PlayerState ai = vm.session().getAi();
+        PlayerState ai = vm.foe();
         aiField.getChildren().clear();
         if (aiHero == null) {
             aiHero = new HeroView(ai, "魔", false);
@@ -103,7 +103,7 @@ public final class BoardView {
     }
 
     private void refreshPlayerZone() {
-        PlayerState player = vm.session().getPlayer();
+        PlayerState player = vm.me();
         playerField.getChildren().clear();
         if (playerHero == null) {
             playerHero = new HeroView(player, "勇", true);
@@ -128,7 +128,7 @@ public final class BoardView {
     }
 
     private void refreshHand() {
-        PlayerState player = vm.session().getPlayer();
+        PlayerState player = vm.me();
         handBox.getChildren().clear();
         for (Card c : player.getHand()) {
             CardView view = new CardView(c);
@@ -174,10 +174,10 @@ public final class BoardView {
         if (side == null || vm.session() == null) {
             return null;
         }
-        if (side == vm.session().getPlayer()) {
+        if (side == vm.me()) {
             return playerHero == null ? null : playerHero.getPortrait();
         }
-        if (side == vm.session().getAi()) {
+        if (side == vm.foe()) {
             return aiHero == null ? null : aiHero.getPortrait();
         }
         return null;

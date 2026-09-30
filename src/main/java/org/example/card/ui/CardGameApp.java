@@ -29,6 +29,9 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.example.card.ai.AiLevel;
 import org.example.card.ai.SimpleAi;
+import org.example.card.client.RoomClient;
+import org.example.card.net.NetMessage;
+import org.example.card.net.Protocol;
 import org.example.card.engine.ActionValidator;
 import org.example.card.engine.GameEngine;
 import org.example.card.engine.GameSession;
@@ -124,6 +127,16 @@ public class CardGameApp extends Application {
     private HBox replayBar;
     private Button replayPlayButton;
     private GameSession stashedSession;
+
+    // ============ 联机（v2.0 M3c：界面接线，服务端裁决） ============
+
+    /** 联机客户端；非空 = 当前这局由服务端裁决，界面只发指令、等回声。 */
+    private RoomClient netClient;
+    private Button netButton;
+    /** 已经搬进日志区的联机引擎日志条数（增量同步）。 */
+    private int netLogSeen;
+    /** 联机房间默认端口（与服务端 {@code RoomServer.DEFAULT_PORT} 一致）。 */
+    private static final int ROOM_PORT = org.example.card.server.RoomServer.DEFAULT_PORT;
 
     /** 战绩读盘：文件不存在/损坏时从零计数（绝不炸启动）。 */
     private void loadStats() {
@@ -292,6 +305,11 @@ public class CardGameApp extends Application {
                 handBox.getScene() != null ? handBox.getScene().getWindow() : null, stats,
                 theme.cssUrl()));
 
+        // 联机：连房间服务端，等对手入座；再点一次断开
+        netButton = new Button("联机");
+        netButton.getStyleClass().add("btn");
+        netButton.setOnAction(e -> toggleNetwork());
+
         // 回放控制条（平时隐藏）：上一步 / 播放暂停 / 下一步 / 退出回放
         Button prevButton = new Button("上一步");
         replayPlayButton = new Button("播放");
@@ -314,7 +332,7 @@ public class CardGameApp extends Application {
         javafx.scene.layout.FlowPane controls = new javafx.scene.layout.FlowPane(
                 javafx.geometry.Orientation.HORIZONTAL, 12, 4,
                 startButton, endTurnButton, soundButton, themeButton, levelBox,
-                loadButton, replayButton, deckButton, statsButton, statusLabel, pileLabel);
+                loadButton, replayButton, deckButton, statsButton, netButton, statusLabel, pileLabel);
         controls.setAlignment(Pos.CENTER_LEFT);
         controls.setPadding(new Insets(6, 4, 0, 4));
 
@@ -472,6 +490,9 @@ public class CardGameApp extends Application {
 
     /** 打开构筑窗口：完成后校验合法才收下并落盘，下局开局生效。 */
     private void openDeckBuilder() {
+        if (netClient != null) {
+            log("联机对局固定标准牌堆，这套自定义牌组只对单机生效。");
+        }
         DeckBuilderView.show(handBox.getScene() != null ? handBox.getScene().getWindow() : null,
                 customDeckIds, ids -> {
                     customDeckIds = new ArrayList<>(ids);
@@ -503,6 +524,7 @@ public class CardGameApp extends Application {
 
     /** 新游戏：初始化双方牌堆、手牌，随机先后手。 */
     private void startNewGame() {
+        closeNetwork(true);
         stopReplayUi();
         recorder.clear();
         List<Card> customDeck = resolveCustomDeck();
@@ -544,6 +566,177 @@ public class CardGameApp extends Application {
             runAiTurn();
         }
         refresh();
+    }
+
+    // ============ 联机对战（v2.0 M3c：界面接线，服务端裁决） ============
+
+    /** 工具栏「联机」：没连就弹框连房间，已连就断开。 */
+    private void toggleNetwork() {
+        if (netClient != null) {
+            closeNetwork(false);
+            statusLabel.setText("已断开联机");
+            log("已断开联机。点「开始游戏」回到单机。");
+            return;
+        }
+        askRoomAddress();
+    }
+
+    /** 问房间地址（默认本机 :ROOM_PORT）后开连。 */
+    private void askRoomAddress() {
+        javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog(
+                System.getProperty("net.room", "127.0.0.1:" + ROOM_PORT));
+        dialog.setTitle("联机对战");
+        dialog.setHeaderText("房间地址（host:port）\n"
+                + "先启动服务端：java -cp target/classes org.example.card.server.RoomServer\n"
+                + "昵称可用 -Dnet.name=名字 指定，留空则随机生成");
+        dialog.setContentText("地址：");
+        Optional<String> input = dialog.showAndWait();
+        if (input.isEmpty() || input.get().isBlank()) {
+            return;
+        }
+        String address = input.get().trim();
+        String host = address;
+        int port = ROOM_PORT;
+        int colon = address.lastIndexOf(':');
+        if (colon > 0) {
+            host = address.substring(0, colon);
+            try {
+                port = Integer.parseInt(address.substring(colon + 1).trim());
+            } catch (NumberFormatException ex) {
+                log("端口不合法：" + address);
+                return;
+            }
+        }
+        startNetworkGame(host, port);
+    }
+
+    /** 开一条联机连接：连上后等对手入座，收到 START 才把棋盘换成服务端那一局。 */
+    private void startNetworkGame(String host, int port) {
+        String name = System.getProperty("net.name");
+        if (name == null || name.isBlank()) {
+            // 服务端按昵称认人，两端重名会把动作归错座位，所以默认随机一个
+            name = "玩家" + (1000 + RANDOM.nextInt(9000));
+        }
+        closeNetwork(true);
+        stopReplayUi();
+        RoomClient client = new RoomClient(host, port, name);
+        netClient = client;
+        netLogSeen = 0;
+        netButton.setText("断开联机");
+        statusLabel.setText("连接 " + host + ":" + port + " …");
+        log("联机：以「" + name + "」连接 " + host + ":" + port + "，等对手入座……");
+        // 入站报文整体派发到 JavaFX 线程：重放 → 引擎事件 → 动画/音效 才能安全碰控件
+        client.setDispatcher(Platform::runLater);
+        client.setListener(new RoomClient.Listener() {
+            @Override
+            public void onStart() {
+                adoptNetworkGame(client);
+            }
+
+            @Override
+            public void onChanged() {
+                networkChanged(client);
+            }
+
+            @Override
+            public void onRefused(NetMessage.Failure failure) {
+                log("服务端拒绝指令：" + failure.message());
+                statusLabel.setText("指令被拒：" + failure.message());
+            }
+
+            @Override
+            public void onClosed(String reason) {
+                if (netClient != client) {
+                    return;
+                }
+                log("联机断开：" + reason);
+                statusLabel.setText("联机断开");
+                closeNetwork(true);
+            }
+        });
+        Thread connector = new Thread(() -> {
+            try {
+                client.connect();
+            } catch (java.io.IOException ex) {
+                Platform.runLater(() -> {
+                    if (netClient != client) {
+                        return;
+                    }
+                    log("联机失败：" + ex.getMessage());
+                    statusLabel.setText("联机失败");
+                    closeNetwork(true);
+                });
+            }
+        }, "room-connect");
+        connector.setDaemon(true);
+        connector.start();
+    }
+
+    /** START 到达：把真相源换成服务端的影子对局（座位号照抄服务端给的号）。 */
+    private void adoptNetworkGame(RoomClient client) {
+        if (netClient != client || !client.started()) {
+            return;
+        }
+        session = client.session();
+        engine = client.engine();
+        player = client.me();
+        ai = client.opponent();
+        // 我可能坐在 1 号位：ViewModel/BoardView 靠 localSeat 区分「你」和「对手」
+        vm.setLocalSeat(client.youSeat());
+        vm.attach(session, engine);
+        boardView.reset();
+        announcedOver = false;
+        wasPlayerFirst = client.playerFirst();
+        turnKills = 0;
+        maxKills = 0;
+        subscribeEvents();
+        logArea.clear();
+        netLogSeen = 0;
+        log("联机开局：你是「" + player.getName() + "」（座位 " + client.youSeat() + "），对手「"
+                + ai.getName() + "」；" + (wasPlayerFirst ? "你先手" : "对手先手")
+                + "；seed=" + client.seed());
+        log("联机固定标准牌堆、不计入单机战绩；每条操作都等服务端裁决后的回声。");
+        endTurnButton.setDisable(false);
+        networkChanged(client);
+    }
+
+    /** 回声到达（已开局/已重放）：搬日志、更新状态栏、查终局、刷新棋盘。 */
+    private void networkChanged(RoomClient client) {
+        if (netClient != client || client.session() == null) {
+            return;
+        }
+        List<String> lines = client.log();
+        for (int i = netLogSeen; i < lines.size(); i++) {
+            log(lines.get(i));
+        }
+        netLogSeen = lines.size();
+        player = client.me();
+        ai = client.opponent();
+        if (gameOver()) {
+            endTurnButton.setDisable(true);
+            checkGameOver();
+        } else if (client.myTurn()) {
+            statusLabel.setText("你的回合 · 请出牌（第 " + Math.max(1, client.turn()) + " 回合）");
+        } else {
+            statusLabel.setText("对手回合…");
+        }
+        refresh();
+    }
+
+    /** 断开联机（silent：切换局面时静默清理）。 */
+    private void closeNetwork(boolean silent) {
+        RoomClient client = netClient;
+        netClient = null;
+        if (netButton != null) {
+            netButton.setText("联机");
+        }
+        if (client != null) {
+            client.setListener(null);   // 主动断开不再回调界面
+            client.close();
+            if (!silent) {
+                log("联机已断开。");
+            }
+        }
     }
 
     /** 订阅引擎事件：伤害飘字、粒子、音效、胜负横幅。 */
@@ -651,6 +844,16 @@ public class CardGameApp extends Application {
     /** 出牌（带"卡牌从手牌飞向战场"的动效）。 */
     private void playCard(Card card) {
         if (!yourTurn() || gameOver()) {
+            return;
+        }
+        // 联机：只把「第几张手牌」发给服务端，棋盘等回声（服务端 SYNC 重放 → 引擎事件 → 动画）
+        if (netClient != null) {
+            int index = player.getHand().indexOf(card);
+            if (index < 0) {
+                return;
+            }
+            statusLabel.setText("已发送出牌，等待服务端…");
+            netClient.playCard(index);
             return;
         }
         // 找到被点击的那张手牌控件，作为飞行动画的起点
@@ -774,6 +977,10 @@ public class CardGameApp extends Application {
             refresh();
             return;
         }
+        if (netClient != null) {
+            sendNetworkAttack(attacker, target);
+            return;
+        }
         playAttack(attacker, boardView.findMinionNode(target), () -> {
             engine.attack(player, ai, attacker, target, this::log);
             checkGameOver();
@@ -794,12 +1001,34 @@ public class CardGameApp extends Application {
             refresh();
             return;
         }
+        if (netClient != null) {
+            sendNetworkAttack(attacker, null);
+            return;
+        }
         Node heroNode = boardView.aiHeroPortrait();
         playAttack(attacker, heroNode, () -> {
             engine.attack(player, ai, attacker, null, this::log);
             checkGameOver();
             refresh();
         });
+    }
+
+    /** 联机攻击：只发两个下标（打脸发 {@link Protocol#FACE}）；合法性上面已用本地那份规则预检。 */
+    private void sendNetworkAttack(MinionCard attacker, MinionCard target) {
+        int attackerIndex = player.getField().indexOf(attacker);
+        int targetIndex;
+        if (target == null) {
+            targetIndex = Protocol.FACE;
+        } else {
+            targetIndex = ai.getField().indexOf(target);
+        }
+        if (attackerIndex < 0 || (target != null && targetIndex < 0)) {
+            log("本地下标与场上对不上，这次攻击没有发出去。");
+            refresh();
+            return;
+        }
+        statusLabel.setText("已发送攻击，等待服务端…");
+        netClient.attack(attackerIndex, targetIndex);
     }
 
     /** 预检：返回“为什么打不了”，为空表示合法（与结算共用 ActionValidator）。 */
@@ -836,6 +1065,12 @@ public class CardGameApp extends Application {
 
     private void endYourTurn() {
         if (!yourTurn() || gameOver()) {
+            return;
+        }
+        // 联机：交回合只是发指令，服务端的 AI/对手由对面的客户端驱动
+        if (netClient != null) {
+            statusLabel.setText("已交出回合，等待对手…");
+            netClient.endTurn();
             return;
         }
         controller.closePlayerTurn(session, this::log);
@@ -951,6 +1186,10 @@ public class CardGameApp extends Application {
         if (replaying || isAutoplay()) {
             return;
         }
+        if (netClient != null) {
+            log("联机模式下不能读档：服务端那份棋局才是真相源。");
+            return;
+        }
         if (!java.nio.file.Files.isRegularFile(AUTOSAVE_FILE)) {
             log("暂无存档（打完一个玩家回合会自动存档）。");
             return;
@@ -995,6 +1234,10 @@ public class CardGameApp extends Application {
     /** 进入回放：只能在你的回合且 AI 演完后进；实况暂存，退出时原样恢复。 */
     private void enterReplay() {
         if (replaying || isAutoplay() || session == null) {
+            return;
+        }
+        if (netClient != null) {
+            log("联机模式下不能看回放：联机局本身不记录回放。");
             return;
         }
         if (!yourTurn() || director.hasPendingSteps()) {
@@ -1129,14 +1372,16 @@ public class CardGameApp extends Application {
             return;
         }
         announcedOver = true;
-        // 整局记录落盘，供“回放上次对局”用
-        try {
-            recorder.saveToFile(LAST_REPLAY_FILE);
-        } catch (RuntimeException ex) {
-            GameLog.warn("保存回放失败: " + ex.getMessage());
+        // 整局记录落盘，供“回放上次对局”用（联机局不记回放，别覆盖上一份单机回放）
+        if (netClient == null) {
+            try {
+                recorder.saveToFile(LAST_REPLAY_FILE);
+            } catch (RuntimeException ex) {
+                GameLog.warn("保存回放失败: " + ex.getMessage());
+            }
         }
-        // 战绩与成就（自动对局不计入）
-        if (!isAutoplay() && engine != null) {
+        // 战绩与成就（自动对局与联机对局都不计入）
+        if (!isAutoplay() && netClient == null && engine != null) {
             StatsService.GameResult result = new StatsService.GameResult(won,
                     aiLevel == AiLevel.HARD, wasPlayerFirst,
                     player.getHand().isEmpty(), maxKills,

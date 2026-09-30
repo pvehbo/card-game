@@ -96,9 +96,12 @@ class ReplayTest {
             assertEquals(original.type(), parsed.type());
             assertEquals(original.amount(), parsed.amount());
             assertEquals(original.message(), parsed.message());
-            assertEquals(1, parsed.schemaVersion());
+            assertEquals(GameEvent.EVENT_SCHEMA, parsed.schemaVersion());
+            assertEquals(0, parsed.seq(), "本地存档不带协议序号");
+            assertEquals(0, parsed.turn());
         }
-        assertTrue(json.stream().allMatch(line -> line.contains("\"schemaVersion\":1")));
+        assertTrue(json.stream().allMatch(
+                line -> line.contains("\"schemaVersion\":" + GameEvent.EVENT_SCHEMA)));
     }
 
     @Test
@@ -109,7 +112,7 @@ class ReplayTest {
         alice.getField().add(a);
         String json = new GameEvent(GameEvent.Type.ATTACK, alice, playerOf("鲍勃"),
                 null, a, null, 3, "打").toJson()
-                .replace("\"schemaVersion\":1", "\"schemaVersion\":999");
+                .replace("\"schemaVersion\":" + GameEvent.EVENT_SCHEMA, "\"schemaVersion\":999");
         assertThrows(IllegalArgumentException.class, () -> GameEvent.fromJson(json));
     }
 
@@ -119,6 +122,41 @@ class ReplayTest {
         GameEvent.JsonData parsed = GameEvent.fromJson(event.toJson());
         assertEquals(event.message(), parsed.message());
         assertEquals(GameEvent.Type.BURN, parsed.type());
+    }
+
+    /** M1：v2 新增的协议字段必须能带上并原样解回。 */
+    @Test
+    void schemaTwoCarriesSequenceAndTurn() {
+        GameEvent event = GameEvent.of(GameEvent.Type.TURN_START, "第 7 回合开始");
+        GameEvent.JsonData parsed = GameEvent.fromJson(event.toJson(12, 7));
+        assertEquals(GameEvent.EVENT_SCHEMA, parsed.schemaVersion());
+        assertEquals(12, parsed.seq());
+        assertEquals(7, parsed.turn());
+        assertEquals(GameEvent.Type.TURN_START, parsed.type());
+        assertEquals("第 7 回合开始", parsed.message());
+    }
+
+    /** M1 兼容底线：v1 正文（没有 seq/turn、schemaVersion=1）必须照旧解析。 */
+    @Test
+    void legacySchemaOneJsonStillParses() {
+        String v1 = "{\"type\":\"DAMAGE\",\"actor\":null,\"target\":\"鲍勃\","
+                + "\"cardId\":null,\"attacker\":null,\"defender\":null,"
+                + "\"amount\":4,\"message\":\"火球命中\",\"schemaVersion\":1}";
+        GameEvent.JsonData parsed = GameEvent.fromJson(v1);
+        assertEquals(1, parsed.schemaVersion());
+        assertEquals(GameEvent.Type.DAMAGE, parsed.type());
+        assertEquals("鲍勃", parsed.target());
+        assertEquals(4, parsed.amount());
+        assertEquals("火球命中", parsed.message());
+        assertEquals(0, parsed.seq(), "旧正文没有 seq，补 0");
+        assertEquals(0, parsed.turn(), "旧正文没有 turn，补 0");
+    }
+
+    /** 未知字段仍要报错：存档是本机文件，写错了必须当场发现。 */
+    @Test
+    void unknownFieldIsStillRejected() {
+        String json = GameEvent.of(GameEvent.Type.BURN, "烧").toJson().replace("\"amount\":0", "\"future\":1");
+        assertThrows(IllegalArgumentException.class, () -> GameEvent.fromJson(json));
     }
 
     @Test

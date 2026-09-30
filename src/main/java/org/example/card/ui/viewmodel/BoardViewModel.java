@@ -10,6 +10,7 @@ import org.example.card.engine.GameSession;
 import org.example.card.event.GameEvent;
 import org.example.card.model.Card;
 import org.example.card.model.MinionCard;
+import org.example.card.model.PlayerState;
 
 /**
  * 战场 ViewModel（S7）：界面唯一的真相源。
@@ -22,6 +23,11 @@ public final class BoardViewModel {
 
     private GameSession session;
     private GameEngine engine;
+    /**
+     * 我在会话里的座位：单机恒为 0；联机时是服务端给我的座位号，
+     * 因为客户端的影子棋局必须与服务端同序（发牌按座位顺序），我可能坐在 1 号位。
+     */
+    private int localSeat;
     private MinionCard selectedAttacker;
     /** 本回合新抽到的牌：等控件建好后补一段“抽牌入场”动画。 */
     private final Set<Card> pendingDrawAnim = new HashSet<>();
@@ -34,7 +40,7 @@ public final class BoardViewModel {
         this.selectedAttacker = null;
         this.pendingDrawAnim.clear();
         engine.eventBus().on(GameEvent.Type.DRAW, e -> {
-            if (session.getPlayer() != null && e.actor() == session.getPlayer()
+            if (me() != null && e.actor() == me()
                     && e.card() != null) {
                 pendingDrawAnim.add(e.card());
             }
@@ -44,6 +50,31 @@ public final class BoardViewModel {
 
     public GameSession session() {
         return session;
+    }
+
+    /** 设置我在会话里的座位（联机开局时调用；单机不用管，默认 0）。 */
+    public void setLocalSeat(int seat) {
+        this.localSeat = seat == 1 ? 1 : 0;
+    }
+
+    public int localSeat() {
+        return localSeat;
+    }
+
+    /** 我这边的玩家状态（界面里的「你」）。 */
+    public PlayerState me() {
+        if (session == null) {
+            return null;
+        }
+        return localSeat == 1 ? session.getAi() : session.getPlayer();
+    }
+
+    /** 对面那一边的玩家状态。 */
+    public PlayerState foe() {
+        if (session == null) {
+            return null;
+        }
+        return localSeat == 1 ? session.getPlayer() : session.getAi();
     }
 
     /** 界面刷新通知：订阅一次，之后每次 touch() 自动刷新。 */
@@ -98,7 +129,7 @@ public final class BoardViewModel {
             return false;
         }
         // 次数限 + 费用合并判断：费用不够自动置灰
-        return engine.canPlay(session.getPlayer(), card);
+        return engine.canPlay(me(), card);
     }
 
     // ============ 抽牌动画标记 ============
@@ -114,6 +145,6 @@ public final class BoardViewModel {
             pendingDrawAnim.clear();
             return;
         }
-        pendingDrawAnim.removeIf(c -> !session.getPlayer().getHand().contains(c));
+        pendingDrawAnim.removeIf(c -> !me().getHand().contains(c));
     }
 }

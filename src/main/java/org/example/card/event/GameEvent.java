@@ -3,10 +3,14 @@ package org.example.card.event;
 import org.example.card.model.Card;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PlayerState;
+import org.example.card.net.Json;
 
 /**
  * 游戏事件：引擎在关键节点发出，UI 订阅后做动效与刷新。
  * 用 record 保证不可变，字段按事件类型取舍使用。
+ *
+ * <p>M1 起 JSON 升到 {@link #EVENT_SCHEMA} = 2：只新增两个可选协议字段（seq/turn），
+ * v1 正文照旧可解析，联机广播与本地回放共用同一套编解码。
  */
 public record GameEvent(
         Type type,
@@ -19,8 +23,11 @@ public record GameEvent(
         String message
 ) {
 
-    /** 事件序列化版本号：fromJson 拒绝更大的版本（提示升级游戏）。 */
-    public static final int EVENT_SCHEMA = 1;
+    /**
+     * 事件序列化版本号：fromJson 拒绝更大的版本（提示升级游戏）。
+     * v1 → v2 只加了 seq/turn 两个可选字段，是向前兼容的加法。
+     */
+    public static final int EVENT_SCHEMA = 2;
 
     public enum Type {
         /** 抽牌 */
@@ -55,7 +62,10 @@ public record GameEvent(
         return new GameEvent(Type.DRAW, who, null, card, null, null, 0, message);
     }
 
-    /** 烧牌（手牌满时抽到的那张直接进墓地）：带 owner/card，界面才能定位是哪一侧满手。 */
+    /**
+     * 烧牌（手牌满时抽到的那张直接进墓地）。
+     * 带 owner/card 是 M2 联机需要：对手那张牌是暗信息，广播时要按座位抹掉牌面。
+     */
     public static GameEvent burn(PlayerState owner, Card card, String message) {
         return new GameEvent(Type.BURN, owner, null, card, null, null, 0, message);
     }
@@ -102,34 +112,54 @@ public record GameEvent(
         return new GameEvent(Type.GAME_OVER, winner, null, null, null, null, 0, message);
     }
 
-    // ============ 版本化 JSON（S9：存档/回放用，零第三方依赖） ============
+    // ============ 版本化 JSON（S9 存档/回放 → M1 联机广播共用） ============
 
-    /** 解析后的事件数据（实体引用还原为名字/id，数值与消息完整保留）。 */
+    /**
+     * 解析后的事件数据（实体引用还原为名字/id，数值与消息完整保留）。
+     *
+     * <p>{@code seq}/{@code turn} 是 M1 的协议字段：v1 正文里没有，解析时补 0，
+     * 所以旧存档、旧客户端事件流不需要任何迁移。
+     */
     public record JsonData(Type type, String actor, String target, String cardId,
                            String attacker, String defender, int amount,
-                           String message, int schemaVersion) {
+                           String message, int schemaVersion, int seq, int turn) {
+    }
+
+    /** 本地存档/回放：不带协议顺序号（seq/turn 记 0），其余与 {@link #toJson(int, int)} 完全一致。 */
+    public String toJson() {
+        return toJson(0, 0);
     }
 
     /**
-     * 序列化为 JSON（字段固定顺序，缺失写 null）。
+     * v2 协议序列化（字段固定顺序，缺失写 null）。
      * actor/target 取玩家名，card 取卡 id，attacker/defender 取随从名。
+     *
+     * @param seq  服务端广播序号（从 1 递增）；客户端重连时靠它判断漏没漏事件
+     * @param turn 事件发生时的引擎回合号
      */
-    public String toJson() {
+    public String toJson(int seq, int turn) {
         return "{\"type\":\"" + type.name() + "\""
-                + ",\"actor\":" + jsonName(actor == null ? null : actor.getName())
-                + ",\"target\":" + jsonName(target == null ? null : target.getName())
-                + ",\"cardId\":" + jsonName(card == null ? null : card.getId())
-                + ",\"attacker\":" + jsonName(attacker == null ? null : attacker.getName())
-                + ",\"defender\":" + jsonName(defender == null ? null : defender.getName())
+                + ",\"actor\":" + Json.quote(actor == null ? null : actor.getName())
+                + ",\"target\":" + Json.quote(target == null ? null : target.getName())
+                + ",\"cardId\":" + Json.quote(card == null ? null : card.getId())
+                + ",\"attacker\":" + Json.quote(attacker == null ? null : attacker.getName())
+                + ",\"defender\":" + Json.quote(defender == null ? null : defender.getName())
                 + ",\"amount\":" + amount
-                + ",\"message\":" + jsonName(message)
+                + ",\"message\":" + Json.quote(message)
+                + ",\"seq\":" + seq
+                + ",\"turn\":" + turn
                 + ",\"schemaVersion\":" + EVENT_SCHEMA + "}";
     }
 
-    /** 反解析；缺字段或版本大于 {@link #EVENT_SCHEMA} 时抛 IllegalArgumentException。 */
+    /**
+     * 反解析；缺必填字段或版本大于 {@link #EVENT_SCHEMA} 时抛 IllegalArgumentException。
+     *
+     * <p>未知字段仍然报错——存档是本机文件，写错了要当场发现；但 seq/turn 是可选字段，
+     * v1 正文（没有它们）解析出来的 seq/turn 是 0。
+     */
     public static JsonData fromJson(String json) {
-        JsonParser parser = new JsonParser(json);
-        parser.expect('{');
+        Json.Reader reader = new Json.Reader(json, "事件 JSON");
+        reader.expect('{');
         String type = null;
         String actor = null;
         String target = null;
@@ -139,29 +169,30 @@ public record GameEvent(
         Integer amount = null;
         String message = null;
         Integer schemaVersion = null;
+        int seq = 0;
+        int turn = 0;
         boolean first = true;
-        while (!parser.peek('}')) {
-            if (!first) {
-                parser.expect(',');
-            }
+        while (reader.nextEntry(first)) {
             first = false;
-            String key = parser.string();
-            parser.expect(':');
+            String key = reader.string();
+            reader.expect(':');
             switch (key) {
-                case "type" -> type = parser.string();
-                case "actor" -> actor = parser.nullableString();
-                case "target" -> target = parser.nullableString();
-                case "cardId" -> cardId = parser.nullableString();
-                case "attacker" -> attacker = parser.nullableString();
-                case "defender" -> defender = parser.nullableString();
-                case "amount" -> amount = parser.integer();
-                case "message" -> message = parser.nullableString();
-                case "schemaVersion" -> schemaVersion = parser.integer();
+                case "type" -> type = reader.string();
+                case "actor" -> actor = reader.nullableString();
+                case "target" -> target = reader.nullableString();
+                case "cardId" -> cardId = reader.nullableString();
+                case "attacker" -> attacker = reader.nullableString();
+                case "defender" -> defender = reader.nullableString();
+                case "amount" -> amount = reader.integer();
+                case "message" -> message = reader.nullableString();
+                case "seq" -> seq = reader.integer();
+                case "turn" -> turn = reader.integer();
+                case "schemaVersion" -> schemaVersion = reader.integer();
                 default -> throw new IllegalArgumentException("未知字段: " + key);
             }
         }
-        parser.expect('}');
-        parser.end();
+        reader.expect('}');
+        reader.end();
         if (type == null || amount == null || message == null || schemaVersion == null) {
             throw new IllegalArgumentException("事件 JSON 缺字段: " + json);
         }
@@ -176,106 +207,6 @@ public record GameEvent(
             throw new IllegalArgumentException("未知事件类型: " + type, ex);
         }
         return new JsonData(parsedType, actor, target, cardId,
-                attacker, defender, amount, message, schemaVersion);
-    }
-
-    private static String jsonName(String value) {
-        if (value == null) {
-            return "null";
-        }
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"")
-                .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") + "\"";
-    }
-
-    /** 仅够本 schema 用的最小严格解析器（对象/字符串/null/整数）。 */
-    private static final class JsonParser {
-        private final String text;
-        private int pos;
-
-        JsonParser(String text) {
-            this.text = text;
-        }
-
-        void expect(char ch) {
-            skipSpaces();
-            if (pos >= text.length() || text.charAt(pos) != ch) {
-                throw new IllegalArgumentException(
-                        "事件 JSON 语法错误（位置 " + pos + " 期望 '" + ch + "'): " + text);
-            }
-            pos++;
-        }
-
-        boolean peek(char ch) {
-            skipSpaces();
-            return pos < text.length() && text.charAt(pos) == ch;
-        }
-
-        void end() {
-            skipSpaces();
-            if (pos != text.length()) {
-                throw new IllegalArgumentException("事件 JSON 尾部多余: " + text);
-            }
-        }
-
-        String string() {
-            expect('"');
-            StringBuilder out = new StringBuilder();
-            while (true) {
-                if (pos >= text.length()) {
-                    throw new IllegalArgumentException("事件 JSON 字符串未闭合: " + text);
-                }
-                char ch = text.charAt(pos++);
-                if (ch == '"') {
-                    return out.toString();
-                }
-                if (ch == '\\') {
-                    if (pos >= text.length()) {
-                        throw new IllegalArgumentException("事件 JSON 转义未闭合: " + text);
-                    }
-                    char esc = text.charAt(pos++);
-                    out.append(switch (esc) {
-                        case '"' -> '"';
-                        case '\\' -> '\\';
-                        case 'n' -> '\n';
-                        case 'r' -> '\r';
-                        case 't' -> '\t';
-                        default -> throw new IllegalArgumentException(
-                                "事件 JSON 非法转义 \\" + esc + ": " + text);
-                    });
-                } else {
-                    out.append(ch);
-                }
-            }
-        }
-
-        String nullableString() {
-            skipSpaces();
-            if (text.startsWith("null", pos)) {
-                pos += 4;
-                return null;
-            }
-            return string();
-        }
-
-        int integer() {
-            skipSpaces();
-            int start = pos;
-            if (pos < text.length() && text.charAt(pos) == '-') {
-                pos++;
-            }
-            while (pos < text.length() && Character.isDigit(text.charAt(pos))) {
-                pos++;
-            }
-            if (start == pos) {
-                throw new IllegalArgumentException("事件 JSON 期望整数（位置 " + start + "): " + text);
-            }
-            return Integer.parseInt(text.substring(start, pos));
-        }
-
-        private void skipSpaces() {
-            while (pos < text.length() && Character.isWhitespace(text.charAt(pos))) {
-                pos++;
-            }
-        }
+                attacker, defender, amount, message, schemaVersion, seq, turn);
     }
 }

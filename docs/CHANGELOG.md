@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## v2.0.0（联机版 · M0–M3 预览，未发布）
+
+口号：两个人，同一盘棋。服务端用同一份引擎重算，客户端只是手柄。
+
+### 联机最小可玩（M0 → M3）
+- **协议与编解码（M1）**：新增 `net/` 包（`Protocol` / `NetMessage` / `MessageCodec` / `Json`）——
+  8 种信封（JOIN / START / ACTION / SYNC / EVENT / PING / PONG / ERROR），裸 TCP 一行一条 JSON，
+  手写 JSON 读写器**零第三方依赖**；`GameEvent` 升 `EVENT_SCHEMA = 2`（带 `seq` / `turn`），v1 事件流照旧能读
+- **房间服务端（M2）**：`server/GameRoom` 是房间唯一输入口 `handle(seat, wire)`（解析 → 校验 → 结算 → 广播），
+  `server/RoomServer` 负责 TCP 接受循环；启动方式
+  `java -cp target/classes org.example.card.server.RoomServer [端口] [seed]`（默认 7788）。
+  非法指令回 `ERROR` 并记在 `rejections()` 账上（验收要求「被拒并记录」）
+- **客户端与界面接线（M3）**：`client/RoomClient`（发指令、按 SYNC 回声重放、收事件、`divergences()` 查分叉）+
+  `service/MatchReferee`（服务端与客户端共用的座位无关裁判器）+ 工具栏「联机」按钮与地址对话框；
+  入站报文整体派发到 JavaFX 线程（`RoomClient.setDispatcher(Platform::runLater)`），订阅手柄可直接碰控件
+- **反作弊模型**：客户端不判任何规则——本地只按服务端**接受过的指令**顺序重放，
+  「客户端状态 = 服务端指令序列的函数」，两端不可能分叉
+
+### 关键设计：座位与暗牌
+- `START` 带 `youSeat` / `firstSeat`：发牌按座位顺序，摆反了两端起手牌会互换、第一回合起就对不上；
+  界面靠 `BoardViewModel.setLocalSeat(seat)` 切换 `me()/foe()`（`BoardViewModelTest` 把这条映射钉死）
+- 服务端按座位裁剪事件：对手的抽牌 / 烧牌抹掉牌面，文案换成「对手抽了一张牌」，
+  服务端自己的日志保留完整牌面（审计看得见，网络上看不见）
+- 联机局不挂本地 AI 导演、不写单机存档 / 回放 / 战绩；联机时「构筑 / 读档 / 回放」只提示不生效
+
+### 其他
+- 测试 122 → 172 用例，全绿（联机新增：`ProtocolCodecTest` 12 / `GameRoomTest` 18 / `RoomServerTest` 3 /
+  `RoomClientTest` 2 / `MatchRefereeTest` 2 / `BoardViewModelTest` 4；M0 体检 `HeadlessGameTest` 4）
+- `service/HeadlessGame` + `HeadlessGameTest`：整局对局在零 JavaFX 环境下跑完，并用字节码扫描
+  钉死「`javafx` 只许出现在 `ui` 包」这条红线
+- 协议表、启动方式、代码地图与已知限制见 [`docs/NETWORK.md`](NETWORK.md)
+- 未做：断线重连、超时判负 / 逃跑判胜（M4）、账号与 ELO（M5，可砍）
+
 ## v1.5.0（双主题版）
 
 口号：一套内容，两种皮肤；先手不再稳赢。本版主线是美术资源 + 主题系统，另附一条平衡调整。

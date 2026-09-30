@@ -149,4 +149,55 @@ class SessionTest {
         }
         assertTrue(session.gameOver(), "30 回合内应分出胜负");
     }
+
+    // ============ M2 联机用的 PvP 开局 ============
+
+    @Test
+    void versusDealsSymmetricOpeningForTheSameSeed() {
+        GameSession a = GameSession.newVersus(new Random(5), deck("a"), deck("b"), "甲", "乙");
+        GameSession b = GameSession.newVersus(new Random(5), deck("a"), deck("b"), "甲", "乙");
+
+        assertEquals(GameSession.Mode.PVP, a.getMode());
+        assertEquals(3, a.getPlayer().getHand().size());
+        assertEquals(3, a.getAi().getHand().size());
+        assertEquals(PlayerState.START_LIFE, a.getPlayer().getLifePoints());
+        assertEquals(PlayerState.START_LIFE, a.getAi().getLifePoints());
+        assertFalse(a.gameOver());
+
+        assertEquals(handIds(a.getPlayer()), handIds(b.getPlayer()), "同 seed 同牌堆必须发出同一手牌");
+        assertEquals(handIds(a.getAi()), handIds(b.getAi()));
+        assertEquals("甲", a.getPlayer().getName());
+        assertEquals("乙", a.getAi().getName());
+    }
+
+    @Test
+    void versusKeepsEachSeatDeckAndLeavesTheInputUntouched() {
+        List<org.example.card.model.Card> seat0 = deck("a");
+        List<org.example.card.model.Card> seat1 = deck("b");
+        List<String> before = seat0.stream().map(c -> c.getId()).toList();
+
+        GameSession session = GameSession.newVersus(new Random(9), seat0, seat1, "甲", "乙");
+
+        assertTrue(handIds(session.getPlayer()).stream().allMatch(id -> id.startsWith("a")),
+                "玩家位只发自己的牌堆：" + handIds(session.getPlayer()));
+        assertTrue(handIds(session.getAi()).stream().allMatch(id -> id.startsWith("b")),
+                "对手位只发对手的牌堆：" + handIds(session.getAi()));
+        assertEquals(7, session.getPlayer().getDeck().size());
+        assertEquals(7, session.getAi().getDeck().size());
+        assertEquals(before, seat0.stream().map(c -> c.getId()).toList(),
+                "牌表按实例拷贝，调用方的列表不能被洗乱");
+    }
+
+    private static List<org.example.card.model.Card> deck(String prefix) {
+        List<org.example.card.model.Card> cards = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            cards.add(new org.example.card.model.MinionCard(
+                    prefix + i, "牌" + prefix + i, "测试用", 1, 1, 1, List.of()));
+        }
+        return cards;
+    }
+
+    private static List<String> handIds(PlayerState state) {
+        return state.getHand().stream().map(c -> c.getId()).toList();
+    }
 }
