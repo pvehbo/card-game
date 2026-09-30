@@ -12,7 +12,18 @@ on:
       - main
 
 jobs:
+  # 没配 secrets.QODANA_TOKEN 时跳过扫描：可选服务不该把 main 的 CI 染红
+  check-token:
+    runs-on: ubuntu-latest
+    outputs:
+      has_token: ${{ steps.check.outputs.has_token }}
+    steps:
+      - id: check
+        run: echo "has_token=${{ secrets.QODANA_TOKEN != '' }}" >> $GITHUB_OUTPUT
+
   qodana:
+    needs: check-token
+    if: needs.check-token.outputs.has_token == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
