@@ -74,4 +74,33 @@ class BoardViewModelTest {
         vm.pruneDrawn();    // 内部走 me()：坐在 1 号位时不该去查座位 0 的手牌
         assertEquals(handSize, vm.me().getHand().size());
     }
+
+    /** R-03：同一引擎重复 attach（进出回放）不得让监听器线性增长。 */
+    @Test
+    void sameEngineAttachDoesNotResubscribe() {
+        GameSession session = versus();
+        GameEngine engine = new GameEngine(new SimpleAi());
+        BoardViewModel vm = new BoardViewModel();
+        vm.attach(session, engine);
+        int before = engine.eventBus().subscriberCount();
+
+        vm.attach(session, engine);
+
+        assertEquals(before, engine.eventBus().subscriberCount(),
+                "同一引擎二次 attach 不应增加订阅者");
+    }
+
+    /** R-03：换新引擎时对新总线订阅一次（DRAW + any 共 2 个）。 */
+    @Test
+    void newEngineAttachSubscribesTwice() {
+        GameSession session = versus();
+        GameEngine engine = new GameEngine(new SimpleAi());
+        BoardViewModel vm = new BoardViewModel();
+        vm.attach(session, engine);
+
+        GameEngine fresh = new GameEngine(new SimpleAi());
+        vm.attach(session, fresh);
+
+        assertEquals(2, fresh.eventBus().subscriberCount(), "新引擎应订阅 DRAW + any 共 2 个");
+    }
 }

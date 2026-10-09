@@ -33,8 +33,7 @@ public class MinionView extends StackPane {
         getStyleClass().add("minion");
 
         Circle inner = new Circle(SIZE / 2 - 7);
-        inner.setFill(javafx.scene.paint.Color.web(own ? "#1e3222" : "#3a2430"));
-        inner.setStroke(javafx.scene.paint.Color.web(own ? "#6fae7f" : "#b07a8a"));
+        inner.getStyleClass().add(own ? "minion-inner-own" : "minion-inner-foe");
         inner.setStrokeWidth(1);
         inner.setMouseTransparent(true);
 

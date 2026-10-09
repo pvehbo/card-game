@@ -59,11 +59,13 @@ public final class CombatResolver {
         List<String> logs = new ArrayList<>();
         int atk = effectiveAttack(self, attacker);
         if (target == null) {
-            foe.damage(atk);
-            String msg = attacker.getName() + " 直击敌方英雄 -" + atk;
+            // 负攻 → 0 伤害（不再反向回血）；显示值与结算值同源，口径一致
+            int dmg = Math.max(0, atk);
+            foe.damage(dmg);
+            String msg = attacker.getName() + " 直击敌方英雄 -" + dmg;
             logs.add(msg);
-            events.add(GameEvent.attack(self, foe, attacker, null, atk, msg));
-            events.add(GameEvent.damage(foe, atk, msg));
+            events.add(GameEvent.attack(self, foe, attacker, null, dmg, msg));
+            events.add(GameEvent.damage(foe, dmg, msg));
         } else {
             int defAtk = effectiveAttack(foe, target);
             String msg = attacker.getName() + "(" + atk + ") 与 "

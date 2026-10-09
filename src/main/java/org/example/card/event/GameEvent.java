@@ -3,7 +3,6 @@ package org.example.card.event;
 import org.example.card.model.Card;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PlayerState;
-import org.example.card.net.Json;
 
 /**
  * 游戏事件：引擎在关键节点发出，UI 订阅后做动效与刷新。

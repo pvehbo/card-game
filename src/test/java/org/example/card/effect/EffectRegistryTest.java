@@ -65,15 +65,49 @@ class EffectRegistryTest {
                 new SpellCard("d1", "杂牌", "垫", SpellCard.Kind.DAMAGE, 1),
                 new SpellCard("d2", "杂牌", "垫", SpellCard.Kind.DAMAGE, 1))));
         PlayerState foe = playerOf(new ArrayList<>());
-        // 先摸走垫牌，牌堆见底后再结算过牌 2：抽空无事发生
+        // 牌堆有 2 张，过牌 2 会真的把这两张抽进手牌（逐张发 DRAW 事件）
+        SpellCard draw = new SpellCard("s", "奥术智慧", "抽2", SpellCard.Kind.DRAW, 2);
+
+        EffectResult result = EffectRegistry.resolve(draw, self, foe);
+
+        assertEquals(List.of(GameEvent.Type.SPELL, GameEvent.Type.DRAW, GameEvent.Type.DRAW),
+                result.events().stream().map(GameEvent::type).toList());
+        assertEquals(List.of("法术：奥术智慧 抽 2 张牌"), result.logs());
+        assertEquals(2, self.getHand().size());
+    }
+
+    /** R-05：满手过牌 → 抽到的牌烧进墓地并发 BURN 事件。 */
+    @Test
+    void drawEffectBurnsWhenHandIsFull() {
+        PlayerState self = playerOf(new ArrayList<>(List.of(
+                new SpellCard("d1", "垫1", "垫", SpellCard.Kind.DAMAGE, 1),
+                new SpellCard("d2", "垫2", "垫", SpellCard.Kind.DAMAGE, 1))));
+        PlayerState foe = playerOf(new ArrayList<>());
+        for (int i = 0; i < PlayerState.MAX_HAND; i++) {
+            self.getHand().add(new SpellCard("h" + i, "占位", "", SpellCard.Kind.HEAL, 1));
+        }
+        SpellCard draw = new SpellCard("s", "奥术智慧", "抽2", SpellCard.Kind.DRAW, 2);
+
+        EffectResult result = EffectRegistry.resolve(draw, self, foe);
+
+        assertEquals(List.of(GameEvent.Type.SPELL, GameEvent.Type.BURN, GameEvent.Type.BURN),
+                result.events().stream().map(GameEvent::type).toList());
+        assertEquals(PlayerState.MAX_HAND, self.getHand().size(), "手牌不得超上限");
+        assertEquals(2, self.getGraveyard().size(), "满手抽到的牌进墓地");
+    }
+
+    /** R-05：空堆过牌 → 只发 SPELL，不抛异常。 */
+    @Test
+    void drawEffectOnEmptyDeckOnlyEmitsSpell() {
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
         SpellCard draw = new SpellCard("s", "奥术智慧", "抽2", SpellCard.Kind.DRAW, 2);
 
         EffectResult result = EffectRegistry.resolve(draw, self, foe);
 
         assertEquals(List.of(GameEvent.Type.SPELL),
                 result.events().stream().map(GameEvent::type).toList());
-        assertEquals(List.of("法术：奥术智慧 抽 2 张牌"), result.logs());
-        assertEquals(2, self.getHand().size());
+        assertEquals(0, self.getHand().size());
     }
 
     @Test

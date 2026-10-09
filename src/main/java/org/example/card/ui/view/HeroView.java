@@ -30,11 +30,9 @@ public class HeroView extends VBox {
     private final Label lifeLabel;
     private final Rectangle barFill;
     private final Label petLabel;
-    private int shownLife;
 
     public HeroView(PlayerState player, String glyph, boolean own) {
         this.player = player;
-        this.shownLife = player.getLifePoints();
 
         setSpacing(5);
         setAlignment(Pos.CENTER);
@@ -124,7 +122,6 @@ public class HeroView extends VBox {
         }
 
         lifeLabel.setText(life + " / " + PlayerState.START_LIFE);
-        shownLife = life;
 
         if (player.getPets().isEmpty()) {
             petLabel.setVisible(false);

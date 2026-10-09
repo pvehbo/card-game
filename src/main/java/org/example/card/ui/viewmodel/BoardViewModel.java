@@ -33,19 +33,28 @@ public final class BoardViewModel {
     private final Set<Card> pendingDrawAnim = new HashSet<>();
     private final List<Runnable> changeListeners = new ArrayList<>();
 
-    /** 接线一局（开局时调用）：换会话与引擎，重新订阅新总线。 */
+    /**
+     * 接线一局（开局时调用）：换会话与引擎。
+     *
+     * <p>只对「引擎实例变了」才重新订阅新总线：进出回放（showReplay/exitReplay）用的是
+     * 同一个 engine 实例，若每次都订阅会让监听器线性增长。开新局/读档时 engine 是新实例，
+     * 订阅一次；旧引擎被丢弃，其总线随之回收。
+     */
     public void attach(GameSession session, GameEngine engine) {
+        boolean newEngine = (this.engine != engine);
         this.session = session;
         this.engine = engine;
         this.selectedAttacker = null;
         this.pendingDrawAnim.clear();
-        engine.eventBus().on(GameEvent.Type.DRAW, e -> {
-            if (me() != null && e.actor() == me()
-                    && e.card() != null) {
-                pendingDrawAnim.add(e.card());
-            }
-        });
-        engine.eventBus().onAny(e -> touch());
+        if (newEngine) {
+            engine.eventBus().on(GameEvent.Type.DRAW, e -> {
+                if (me() != null && e.actor() == me()
+                        && e.card() != null) {
+                    pendingDrawAnim.add(e.card());
+                }
+            });
+            engine.eventBus().onAny(e -> touch());
+        }
     }
 
     public GameSession session() {

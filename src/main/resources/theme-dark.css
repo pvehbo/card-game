@@ -423,3 +423,47 @@
     -fx-text-fill: #8f84a8;
     -fx-font-size: 11px;
 }
+
+/* ============================================================
+   随从内圈 / 成就 toast / 中央横幅（R-07：从 Java 内联迁入主题）
+   ============================================================ */
+.minion-inner-own { -fx-fill: #1e3222; -fx-stroke: #6fae7f; }
+.minion-inner-foe { -fx-fill: #3a2430; -fx-stroke: #b07a8a; }
+
+.toast {
+    -fx-text-fill: #f0c96b;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.9), 8, 0.6, 0, 2);
+    -fx-background-color: rgba(10, 8, 16, 0.85);
+    -fx-background-radius: 8;
+    -fx-padding: 4 14 4 14;
+}
+
+.banner-gold {
+    -fx-text-fill: #f0c96b;
+    -fx-font-size: 46px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(240, 201, 107, 0.75), 26, 0.6, 0, 0);
+}
+
+.banner-ai {
+    -fx-text-fill: #c98b6b;
+    -fx-font-size: 46px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(201, 139, 107, 0.75), 26, 0.6, 0, 0);
+}
+
+.banner-win {
+    -fx-text-fill: #f0c96b;
+    -fx-font-size: 46px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(240, 201, 107, 0.75), 26, 0.6, 0, 0);
+}
+
+.banner-lose {
+    -fx-text-fill: #ff6b6b;
+    -fx-font-size: 46px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(255, 107, 107, 0.75), 26, 0.6, 0, 0);
+}

@@ -1,7 +1,7 @@
 # CardGame · 卡牌对战
 
 一个炉石风格的卡牌对战游戏（玩家 vs AI），暗色奇幻美术风格，Java + JavaFX 实现。
-30 种卡牌、7 个关键词、三档 AI、可构筑牌组、可存档回放、亮暗双主题、**局域网联机对战（v2.0 M0–M3 预览）**。
+30 种卡牌、7 个关键词、三档 AI、可构筑牌组、可存档回放、亮暗双主题，**纯单机、不联网**。
 
 ![游戏截图（暗色主题）](docs/screenshot.png)
 
@@ -64,7 +64,6 @@
 8. **读档 / 回放**：每回合自动存档，点「读档」续玩；点「回放」步进复盘（可播放/暂停/退出）
 9. **战绩**：点「战绩」看胜率统计与 11 个成就
 10. **主题**：点「主题」按钮在暗色 / 亮色之间切换，选择会落盘记住
-11. **联机**：点「联机」输入服务端地址（默认 `127.0.0.1:7788`），两位玩家入座后自动开局 —— 见 [联机对战](#联机对战v20-预览m0m3)
 
 界面提示：
 - 显示 `Zzz` 的随从表示召唤失调，本回合不能攻击
@@ -85,30 +84,6 @@
 
 AI 的回合是**逐动作演出**的：抽牌 → 出牌 → 逐个随从出手，每个动作之间留出间隔，
 你能看清它做了什么，而不是一瞬间全部结算完。
-
-## 联机对战（v2.0 预览：M0–M3）
-
-两位玩家各开一个客户端，连同一个服务端；**服务端用同一份引擎重算**，客户端只是手柄。
-详细协议、代码地图与已知限制见 [`docs/NETWORK.md`](docs/NETWORK.md)。
-
-```bash
-# ① 编译（服务端与客户端是同一份 jar）
-mvn -o -DskipTests package
-
-# ② 起服务端（端口默认 7788，seed 可省）
-java -cp target/classes org.example.card.server.RoomServer 7788 42
-#   → 房间已开：端口 7788，seed=42，等两位玩家入座……
-
-# ③ 两端各起一个客户端，点工具栏「联机」（机器 B 把地址填成服务端 IP）
-mvn javafx:run
-```
-
-- 支持 `-Dnet.room=192.168.1.5:7788`（预设地址）与 `-Dnet.name=小明`（预设昵称，两端别重名）。
-- 固定标准牌堆（自定义牌组仍是单机专属），开局随机先手，双方用同一个 seed 各自重放。
-- 客户端不自己判规则：只有服务端**接受过**的指令才会广播回来，本地照单重放，两端状态不会分叉；
-  对手抽牌 / 烧牌在网络上只显示「对手抽了一张牌」。
-- 联机时「构筑 / 读档 / 回放」不生效（只提示），战绩也不计入单机统计。
-- **尚未做**（M4–M5）：断线重连、超时判负 / 逃跑判胜、账号与 ELO。
 
 ## 打击感与音效
 
@@ -137,7 +112,7 @@ mvn javafx:run
 # 直接运行
 mvn javafx:run
 
-# 跑测试（172 用例，含规则/体检/天梯基准/无界面引擎/联机协议与双端一致性）
+# 跑测试（165 用例，含规则引擎 / 数值体检 / AI 天梯 / 存档兼容 / 双主题与资源 / 无界面引擎 / 对抗性回归）
 mvn test
 ```
 
@@ -216,7 +191,7 @@ images/
 
 - **Java 17** + **JavaFX 21**（界面）
 - **Maven**（构建）
-- **JUnit 5**（172 用例：规则引擎 / 数值体检 / AI 天梯基准 / 存档兼容 / 主题与资源 / 无界面引擎 / 联机协议与双端一致性）
+- **JUnit 5**（165 用例：规则引擎 / 数值体检 / AI 天梯 / 存档兼容 / 双主题与资源 / 无界面引擎 / 对抗性回归）
 - 架构分层：`model`（数据）/ `engine`（校验/结算/会话/回合）/ `effect`（效果注册表+触发器）
   / `data`（卡库/体检/构筑）/ `ai`（策略接口+快照+三档）/ `event`（版本化事件总线）
   / `service`（存档/配置/日志/国际化/统计/回放）/ `ui`（MVVM：VM + 视图 + 演出导演）
@@ -225,10 +200,9 @@ images/
 引擎通过**事件总线**发布游戏事件（抽卡、上场、攻击、受伤、阵亡、回合切换、胜负），界面只订阅事件做表现，两者完全解耦 —— 加新玩法只需加 Effect/Trigger 实现 + JSON。
 
 **界面之外的引擎是干净的**：`javafx` 只出现在 `ui` 包，其余包一律不引用 JavaFX；
-`service/HeadlessGame` 能在无图形环境里跑完整局（v2.0 联机服务端复用的就是这条路径，
-`HeadlessGameTest` 用字节码扫描把这条红线钉死），联机服务端也因此零 JavaFX 依赖。
+`service/HeadlessGame` 能在无图形环境里跑完整局（`HeadlessGameTest` 用字节码扫描把这条红线钉死）。
 
-事件带版本（`EVENT_SCHEMA`）可序列化：存档、回放、天梯、将来联机走的都是同一套事件 JSON。
+事件带版本（`EVENT_SCHEMA`）可序列化：存档与回放走的都是同一套事件 JSON。
 
 ## 项目结构
 
@@ -240,10 +214,7 @@ src/main/java/org/example/card/
 ├── data/        卡库与体检（CardDatabase / MiniJson / BalanceCheck / DeckBuilder）
 ├── ai/          AI（AiStrategy / AiLevel / SimpleAi / RandomAi / HardAi / GameView）
 ├── event/       版本化事件（GameEvent / GameEventBus）
-├── service/     基础服务（SaveService / ConfigService / GameLog / I18n / StatsService / ReplayRecorder / UserData / HeadlessGame / MatchReferee）
-├── net/         联机协议（Protocol / NetMessage / MessageCodec / Json）
-├── server/      联机服务端（GameRoom 房间逻辑 / RoomServer TCP 入口，零第三方依赖）
-├── client/      联机客户端（RoomClient：发指令、按回声重放、收事件）
+├── service/     基础服务（SaveService / ConfigService / GameLog / I18n / StatsService / ReplayRecorder / UserData / HeadlessGame）
 └── ui/          JavaFX 界面（CardGameApp / AiTurnDirector / Theme / Assets / viewmodel.BoardViewModel）
     ├── view/    视图（BoardView / CardView / MinionView / HeroView / DeckBuilderView / StatsView）
     └── fx/      打击感工具箱（Fx 动画 / ParticleLayer 粒子 / SoundEngine + Sfx 音效）

@@ -58,20 +58,59 @@ public final class SoundEngine {
         warmer.start();
     }
 
-    /** 首次使用某个音效时才合成（懒加载，避免启动卡顿）。 */
+    /**
+     * 由 {@link #init()} 的后台预热线程为每个音效合成一次；{@link #play(Sfx)} 不在调用线程合成
+     * （池未就绪时直接跳过），故合成绝不会阻塞界面线程。
+     *
+     * <p>合成刻意放在锁**外**：{@code open} 会做可能长时间阻塞的音频 I/O，若把它放进锁内，
+     * 无音频线路的环境里合成线程会一直占着 {@code POOL_LOCK}，导致退出时调用的
+     * {@link #close()} 死等该锁、进程无法退出（已用 jstack 复现）。
+     * 并发合成用「锁内 {@code putIfAbsent} + 关掉多余的那份」兜底：既不会互相覆盖，也不泄漏 Clip。
+     */
     private static void ensurePool(Sfx sfx) {
-        if (POOL.containsKey(sfx)) {
-            return;
+        synchronized (POOL_LOCK) {
+            if (POOL.containsKey(sfx)) {
+                return;
+            }
         }
+        Deque<Clip> clips = new ArrayDeque<>();
         try {
             byte[] pcm = synth(sfx);
-            Deque<Clip> clips = new ArrayDeque<>();
             for (int i = 0; i < POOL_SIZE; i++) {
                 clips.add(open(pcm));
             }
-            POOL.put(sfx, clips);
         } catch (Exception ex) {
             // 单个音效失败不影响其他音效
+            return;
+        }
+        synchronized (POOL_LOCK) {
+            if (POOL.putIfAbsent(sfx, clips) != null) {
+                // 别的线程抢先放好了：关掉我们这份，避免孤立 Clip
+                for (Clip clip : clips) {
+                    try {
+                        clip.close();
+                    } catch (Exception ignored) {
+                        // 忽略关闭异常
+                    }
+                }
+            }
+        }
+    }
+
+    /** 释放全部 Clip（幂等）。窗口退出或测试收尾调用。 */
+    public static void close() {
+        synchronized (POOL_LOCK) {
+            for (Deque<Clip> clips : POOL.values()) {
+                for (Clip clip : clips) {
+                    try {
+                        clip.stop();
+                        clip.close();
+                    } catch (Exception ignored) {
+                        // 单个 Clip 关闭失败不影响其它
+                    }
+                }
+            }
+            POOL.clear();
         }
     }
 
@@ -83,16 +122,17 @@ public final class SoundEngine {
         return enabled;
     }
 
-    /** 播放音效（非阻塞）。若该音效尚未合成，立即合成后播放。 */
+    /**
+     * 播放音效（真正的非阻塞）。池尚未预热好（后台合成中/合成失败）时直接跳过，
+     * **绝不**在调用线程上做音频合成——调用方往往是 JavaFX 线程，无音频线路时
+     * {@code Clip.open} 会阻塞，界面会整体卡死（已用 jstack 复现）。
+     * 合成只由 {@link #init()} 的后台预热线程负责。
+     */
     public static void play(Sfx sfx) {
         if (!enabled) {
             return;
         }
         Deque<Clip> clips = POOL.get(sfx);
-        if (clips == null) {
-            ensurePool(sfx);
-            clips = POOL.get(sfx);
-        }
         if (clips == null || clips.isEmpty()) {
             return;
         }
@@ -118,22 +158,24 @@ public final class SoundEngine {
 
     private static Clip open(byte[] pcm) throws Exception {
         AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
-        AudioInputStream stream = new AudioInputStream(
-                new ByteArrayInputStream(pcm), format, pcm.length / 2);
-        Clip clip = AudioSystem.getClip();
-        clip.open(stream);
-        try {
-            FloatControl gain = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-            gain.setValue(20f * (float) Math.log10(Math.max(0.0001f, MASTER_VOLUME)));
-        } catch (Exception ignored) {
-            // 某些平台没有音量控制，忽略
-        }
-        clip.addLineListener(event -> {
-            if (event.getType() == LineEvent.Type.STOP) {
-                clip.setFramePosition(0);
+        // try-with-resources：clip.open(stream) 会把数据读入内存，之后 stream 可安全关闭
+        try (AudioInputStream stream = new AudioInputStream(
+                new ByteArrayInputStream(pcm), format, pcm.length / 2)) {
+            Clip clip = AudioSystem.getClip();
+            clip.open(stream);
+            try {
+                FloatControl gain = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+                gain.setValue(20f * (float) Math.log10(Math.max(0.0001f, MASTER_VOLUME)));
+            } catch (Exception ignored) {
+                // 某些平台没有音量控制，忽略
             }
-        });
-        return clip;
+            clip.addLineListener(event -> {
+                if (event.getType() == LineEvent.Type.STOP) {
+                    clip.setFramePosition(0);
+                }
+            });
+            return clip;
+        }
     }
 
     /** 按音效类型合成 16-bit 单声道 PCM。 */

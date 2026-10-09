@@ -128,4 +128,43 @@ class GameEngineTest {
         assertNull(damages.get(0).defender());
         assertEquals(4, damages.get(0).amount());
     }
+
+    /**
+     * R-01：负攻随从直击敌方英雄不得给敌方回血，结算伤害必须钳到 0。
+     * 触发方式：0 攻随从 + attackBonus 为负的宠物光环 → 有效攻击为负。
+     */
+    @Test
+    void negativeAttackFaceHitDealsZeroAndNeverHeals() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard attacker = minion("弱攻", 0, 3);
+        attacker.setSummoningSickness(false);
+        self.getField().add(attacker);
+        // 负攻击光环：0 攻随从的有效攻击 = 0 + (-3) = -3
+        self.getPets().add(new PetCard("p-neg", "弱化兽", "光环", -3, 0));
+
+        List<org.example.card.event.GameEvent> damages = new ArrayList<>();
+        engine.eventBus().on(org.example.card.event.GameEvent.Type.DAMAGE, damages::add);
+
+        int before = foe.getLifePoints();
+        assertTrue(engine.attack(self, foe, attacker, null, new ArrayList<String>()::add));
+
+        assertEquals(before, foe.getLifePoints(), "负攻打脸不得给敌方回血");
+        assertEquals(PlayerState.START_LIFE, foe.getLifePoints(), "满血英雄挨负攻后仍为满血");
+        assertEquals(1, damages.size(), "直击发一条伤害事件");
+        assertEquals(0, damages.get(0).amount(), "负攻结算为 0 伤害");
+    }
+
+    /** R-01：英雄生命双向钳制到 [0, START_LIFE]，负值一律视为 0。 */
+    @Test
+    void heroLifeIsClampedBothWays() {
+        PlayerState p = playerOf(new ArrayList<>());
+        p.damage(Integer.MAX_VALUE);
+        assertEquals(0, p.getLifePoints(), "过量伤害钳到 0");
+        p.heal(999);
+        assertEquals(PlayerState.START_LIFE, p.getLifePoints(), "过量治疗钳到上限");
+        p.damage(-5);
+        assertEquals(PlayerState.START_LIFE, p.getLifePoints(), "负伤害视为 0：不回血、不超上限");
+    }
 }

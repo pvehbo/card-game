@@ -3,6 +3,7 @@ package org.example.card.engine;
 import org.example.card.ai.AiStrategy;
 import org.example.card.ai.GameView;
 import org.example.card.ai.Target;
+import org.example.card.effect.DrawEffect;
 import org.example.card.effect.EffectResult;
 import org.example.card.effect.GameContext;
 import org.example.card.effect.TriggerSystem;
@@ -373,21 +374,14 @@ public class GameEngine {
     }
 
     private void drawPhase(PlayerState self, Consumer<String> log) {
-        self.getDeck().draw().ifPresentOrElse(
-                card -> {
-                    if (self.getHand().size() >= PlayerState.MAX_HAND) {
-                        self.getGraveyard().add(card);
-                        String msg = "手牌已满，烧掉：" + card;
-                        log.accept(msg);
-                        eventBus.publish(GameEvent.burn(self, card, msg));
-                    } else {
-                        self.getHand().add(card);
-                        String msg = "抽卡：+" + card;
-                        log.accept(msg);
-                        eventBus.publish(GameEvent.draw(self, card, msg));
-                    }
-                },
-                () -> log.accept("牌堆已空，无牌可抽"));
+        // 抽一张走统一管线（满手烧牌发 BURN、否则进手牌发 DRAW、空堆返回 null）
+        GameEvent drawn = DrawEffect.drawOne(self);
+        if (drawn == null) {
+            log.accept("牌堆已空，无牌可抽");
+            return;
+        }
+        log.accept(drawn.message());
+        eventBus.publish(drawn);
     }
 
     private void resolveSpell(SpellCard card, PlayerState self, PlayerState foe, Consumer<String> log) {

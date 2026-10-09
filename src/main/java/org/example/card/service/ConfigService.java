@@ -18,8 +18,6 @@ public final class ConfigService {
     }
 
     private boolean soundEnabled = true;
-    private String aiLevel = "normal";
-    private int aiStepGapMs = 420;
     /** 自定义牌组（逗号分隔 id，空表示标准牌堆；B-7 构筑器读写）。 */
     private String deckIds = "";
     /** UI 主题 id（V3 双主题：dark/light；存裸串，映射归 ui.Theme 管）。 */
@@ -34,8 +32,6 @@ public final class ConfigService {
         try (InputStream in = Files.newInputStream(configFile)) {
             props.load(in);
             soundEnabled = Boolean.parseBoolean(props.getProperty("sound.enabled", "true"));
-            aiLevel = props.getProperty("ai.level", "normal");
-            aiStepGapMs = Integer.parseInt(props.getProperty("ai.stepGapMs", "420"));
             deckIds = props.getProperty("deck.ids", "");
             themeId = props.getProperty("ui.theme", "dark");
         } catch (IOException | NumberFormatException | SecurityException ex) {
@@ -46,8 +42,6 @@ public final class ConfigService {
     public void save() {
         Properties props = new Properties();
         props.setProperty("sound.enabled", Boolean.toString(soundEnabled));
-        props.setProperty("ai.level", aiLevel);
-        props.setProperty("ai.stepGapMs", Integer.toString(aiStepGapMs));
         props.setProperty("deck.ids", deckIds);
         props.setProperty("ui.theme", themeId);
         try {
@@ -67,14 +61,6 @@ public final class ConfigService {
 
     public void setSoundEnabled(boolean soundEnabled) {
         this.soundEnabled = soundEnabled;
-    }
-
-    public String getAiLevel() {
-        return aiLevel;
-    }
-
-    public int getAiStepGapMs() {
-        return aiStepGapMs;
     }
 
     public String getDeckIds() {

@@ -106,6 +106,11 @@ public class MinionCard extends Card {
         return attacksUsed;
     }
 
+    /** 读档恢复已出手次数（仅 SaveService 用）。 */
+    public void setAttacksUsed(int attacksUsed) {
+        this.attacksUsed = Math.max(0, attacksUsed);
+    }
+
     /** 出手一次（结算成功后调用）。 */
     public void registerAttack() {
         attacksUsed++;

@@ -29,6 +29,8 @@ public class CardView extends StackPane {
 
     private final Card card;
     private Runnable onPlay;
+    /** 可打出标记：置灰时点击不触发 onPlay（R-06）。 */
+    private boolean playable = true;
 
     public CardView(Card card) {
         this.card = card;
@@ -120,7 +122,7 @@ public class CardView extends StackPane {
         getChildren().add(cost);
 
         setOnMouseClicked(e -> {
-            if (onPlay != null) {
+            if (playable && onPlay != null) {
                 onPlay.run();
             }
         });
@@ -135,6 +137,7 @@ public class CardView extends StackPane {
     }
 
     public void setPlayable(boolean playable) {
+        this.playable = playable;
         if (playable) {
             getStyleClass().remove("card-disabled");
         } else if (!getStyleClass().contains("card-disabled")) {

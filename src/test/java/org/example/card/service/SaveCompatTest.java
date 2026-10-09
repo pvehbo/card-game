@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,6 +32,9 @@ class SaveCompatTest {
         }
         MinionCard played = session.getPlayer().getField().get(0);
         played.takeDamage(1);
+        // R-02：给随从带上「非默认」的召唤失调 / 已出手状态，读档必须原样恢复
+        played.setSummoningSickness(false);
+        played.registerAttack();
         for (var card : new ArrayList<>(session.getPlayer().getHand())) {
             if (card instanceof org.example.card.model.SpellCard s) {
                 engine.playSpell(session.getPlayer(), session.getAi(), s, logs::add);
@@ -94,5 +98,34 @@ class SaveCompatTest {
         GameSession session = dirtiedSession();
         String json = SaveService.save(session).replaceFirst("\"m[0-9]\"", "\"mx-nope\"");
         assertThrows(IllegalStateException.class, () -> SaveService.load(json));
+    }
+
+    /** R-02：读档必须保留随从的召唤失调与已出手次数（不能一律回到默认）。 */
+    @Test
+    void saveLoadPreservesSummoningSicknessAndAttacksUsed() {
+        GameSession session = dirtiedSession();
+        MinionCard before = session.getPlayer().getField().get(0);
+        boolean sicknessBefore = before.isSummoningSickness();
+        int attacksBefore = before.getAttacksUsed();
+
+        GameSession restored = SaveService.load(SaveService.save(session));
+        MinionCard after = restored.getPlayer().getField().get(0);
+
+        assertEquals(sicknessBefore, after.isSummoningSickness(), "读档必须原样恢复召唤失调状态");
+        assertEquals(attacksBefore, after.getAttacksUsed(), "读档必须原样恢复已出手次数");
+    }
+
+    /** R-02：老存档缺 sickness/attacksUsed 字段时用兼容默认（可攻击、未出手）。 */
+    @Test
+    void oldSaveWithoutNewFieldsDefaultsToAttackReady() {
+        GameSession session = dirtiedSession();
+        // 模拟老存档：把新增的两个战场字段整段删掉
+        String old = SaveService.save(session)
+                .replaceAll(",\"sickness\":\"(true|false)\"", "")
+                .replaceAll(",\"attacksUsed\":\\d+", "");
+        GameSession restored = SaveService.load(old);
+        MinionCard minion = restored.getPlayer().getField().get(0);
+        assertFalse(minion.isSummoningSickness(), "老存档缺字段 → 默认可攻击");
+        assertEquals(0, minion.getAttacksUsed(), "老存档缺字段 → 默认未出手");
     }
 }

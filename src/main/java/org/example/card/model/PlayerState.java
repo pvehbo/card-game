@@ -98,13 +98,22 @@ public class PlayerState {
         return lifePoints;
     }
 
+    /** 伤害：非正值视为 0（不再反向回血），结果钳在 [0, START_LIFE]。 */
     public void damage(int amount) {
-        lifePoints = Math.max(0, lifePoints - amount);
+        applyLife(-Math.max(0, amount));
     }
 
-    /** 回复生命，不超过 20 上限。 */
+    /** 回复生命：非正值视为 0，结果钳在 [0, START_LIFE]。 */
     public void heal(int amount) {
-        lifePoints = Math.min(START_LIFE, lifePoints + Math.max(0, amount));
+        applyLife(Math.max(0, amount));
+    }
+
+    /**
+     * 生命唯一出口：把增量双向钳制到 [0, START_LIFE]。
+     * 所有掉血/回血都必须经此方法，禁止绕过直接改 {@code lifePoints}。
+     */
+    private void applyLife(int delta) {
+        lifePoints = Math.max(0, Math.min(START_LIFE, lifePoints + delta));
     }
 
     public boolean isDefeated() {

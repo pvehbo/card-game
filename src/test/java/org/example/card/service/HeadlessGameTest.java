@@ -73,18 +73,9 @@ class HeadlessGameTest {
                 org.example.card.service.SaveService.class,
                 org.example.card.service.ConfigService.class,
                 org.example.card.service.StatsService.class,
-                org.example.card.service.MatchReferee.class,
-                // M1 协议层也必须能在无图形环境里跑（服务端要直接复用）
-                org.example.card.net.Json.class,
-                org.example.card.net.Json.Reader.class,
-                org.example.card.net.Protocol.class,
-                org.example.card.net.NetMessage.class,
-                org.example.card.net.NetMessage.Action.class,
-                org.example.card.net.NetMessage.Sync.class,
-                org.example.card.net.MessageCodec.class,
-                // M2 房间服务端：服务端要和引擎打进同一个 jar，同样不许碰 JavaFX
-                org.example.card.server.GameRoom.class,
-                org.example.card.server.RoomServer.class);
+                // 事件 JSON 读写器也必须能在无图形环境里跑（存档/回放共用）
+                org.example.card.event.Json.class,
+                org.example.card.event.Json.Reader.class);
         for (Class<?> type : engineSide) {
             assertNoJavafx(type);
         }

@@ -1,11 +1,11 @@
-package org.example.card.net;
+package org.example.card.event;
 
 /**
- * 极简 JSON 读写（零第三方依赖），net 包与事件存档共用的底座。
+ * 极简 JSON 读写（零第三方依赖），事件存档（存档/回放）共用的底座。
  *
  * <p>只覆盖本项目需要的子集：对象 / 字符串 / 整数 / 布尔 / null。
- * 解析端刻意支持「跳过任意嵌套值」，这样服务端新增字段时老客户端不会直接崩，
- * 协议才有向前扩展的余地。
+ * 解析端刻意支持「跳过任意嵌套值」，这样新增字段时老读端不会直接崩，
+ * 格式才有向前扩展的余地。
  */
 public final class Json {
 
@@ -17,7 +17,7 @@ public final class Json {
         return value == null ? "null" : "\"" + escape(value) + "\"";
     }
 
-    /** 转义但不加引号。 */
+    /** 转义但不加引号。控制字符一律转义（否则产出非法 JSON）。 */
     public static String escape(String value) {
         StringBuilder out = new StringBuilder(value.length() + 8);
         for (int i = 0; i < value.length(); i++) {
@@ -28,14 +28,22 @@ public final class Json {
                 case '\n' -> out.append("\\n");
                 case '\r' -> out.append("\\r");
                 case '\t' -> out.append("\\t");
-                default -> out.append(ch);
+                case '\b' -> out.append("\\b");
+                case '\f' -> out.append("\\f");
+                default -> {
+                    if (ch < 0x20) {
+                        out.append(String.format("\\u%04x", (int) ch));
+                    } else {
+                        out.append(ch);
+                    }
+                }
             }
         }
         return out.toString();
     }
 
     /**
-     * 最小严格解析器：始终带一个中文标签，报错文案直接面对开发者（联机调试靠它）。
+     * 最小严格解析器：始终带一个中文标签，报错文案直接面对开发者。
      */
     public static final class Reader {
 
@@ -113,12 +121,30 @@ public final class Json {
                         case 'n' -> '\n';
                         case 'r' -> '\r';
                         case 't' -> '\t';
+                        case 'b' -> '\b';
+                        case 'f' -> '\f';
+                        case 'u' -> readUnicode();
                         default -> throw error("非法转义 \\" + esc);
                     });
                 } else {
                     out.append(ch);
                 }
             }
+        }
+
+        /** 读 unicode 转义（反斜杠 u）后的 4 位十六进制（调用时 'u' 已被消费）。 */
+        private char readUnicode() {
+            if (pos + 4 > text.length()) {
+                throw error("\\u 转义不完整");
+            }
+            String hex = text.substring(pos, pos + 4);
+            for (int i = 0; i < 4; i++) {
+                if (Character.digit(hex.charAt(i), 16) < 0) {
+                    throw error("\\u 转义非十六进制：" + hex);
+                }
+            }
+            pos += 4;
+            return (char) Integer.parseInt(hex, 16);
         }
 
         public String nullableString() {

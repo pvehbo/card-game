@@ -1,6 +1,41 @@
 # CHANGELOG
 
-## v2.0.0（联机版 · M0–M3 预览，未发布）
+## v1.6.0（纯单机打磨版）
+
+口号：砍掉整条联机，专注一个人打牌。本版把未发布的 v2.0 联机预览整体移除，项目回归纯单机定位，并修掉一批会算错数、丢状态的单机缺陷。
+
+### 移除全部联机代码（决策 A）
+- 删除三个包：`net/`（协议 / 编解码 / 报文 / JSON）、`server/`（房间服务端）、`client/`（联机客户端），
+  以及 `service/MatchReferee`（座位无关裁判器）与 `ui/CardGameApp` 的联机接线（工具栏「联机」按钮、
+  连接线程、`adoptNetworkGame` 等）
+- 删除 5 个联机测试文件（`ProtocolCodecTest` / `GameRoomTest` / `RoomServerTest` / `RoomClientTest` / `MatchRefereeTest`）
+- `event/GameEvent` 依赖的 JSON 读写器由 `net/Json` **迁移**为 `event/Json`（类名与行为不变），
+  事件格式 `EVENT_SCHEMA` 保持不变，存档与回放格式零变化
+- 删除联机协议文档 `docs/NETWORK.md`；README / CHANGELOG / BACKLOG / PLAN 中的联机章节同步清理
+- 项目**回归纯单机**：玩家 vs AI，不联网、不引入任何第三方依赖
+
+### 单机侧缺陷修复
+- **负攻回血（P0）**：随从打脸统一走「非负钳制」出口，负攻击力不再给对手加血；英雄生命恒在 `[0, 20]`
+- **读档丢召唤失调（P0）**：存档补落 `summoningSickness` / `attacksUsed`，读档续玩不再当回合全瘫；
+  老存档缺字段走默认（可攻击 / 未出手），`SAVE_VERSION` 不变
+- **订阅泄漏（P1）**：`BoardViewModel` 对同一引擎不重复订阅，进出回放不再线性堆积监听器
+- **音效池竞态（P1）**：`SoundEngine` 预热池改双检锁，`Clip` / `AudioInputStream` 纳入关闭，新增幂等 `close()`
+- **过牌不发事件（P1）**：过牌法术改走统一抽牌管线，补发 `DRAW` / `BURN` 事件（有抽牌音效、满手不再静默烧牌）
+- **置灰卡可点（P1）**：置灰手牌真正拦截点击，不再只加样式
+- **主题硬编码色（P1）**：`MinionView` 内圈 / 成就 toast / 中央横幅的硬编码色迁入两套主题 CSS，亮色主题对比度达标
+- **死代码与线程清理（P2）**：删 `engine/Phase`、`ConfigService` 的 `ai.level` / `ai.stepGapMs` 空转配置、
+  `HeroView.shownLife`；`runAiTurn` 去掉后台线程，改由 JavaFX `PauseTransition` 驱动
+- **JSON 转义（P2）**：写入端补 `\b` / `\f` 与 C0 控制字符，与读取端对称
+
+### 其他
+- 交付规模（实测）：`src/main` 源文件 **60**、`src/test` 测试文件 **30**、`@Test` 用例 **165**（0 失败 / 0 错误 / 0 跳过），`ui/CardGameApp.java` **1419** 行；`pom.xml` 零改动
+- 用例数高于设计 §8.3 预估的 135~150：QA 在独立验证阶段新增**对抗性回归套件** `qa/AdversarialVerificationTest`（18 例），逐条证伪 R-01 / R-02 / R-03 / R-05 / R-10 与 SoundEngine 的修复边界，属质量增强
+
+## v2.0.0（联机版 · M0–M3 预览）—— 已移除（未发布）
+
+> **已移除（未发布）**：该方向因产品定位调整为纯单机而整体撤销，代码未发布即移除。
+> 以下内容为历史留档，不再有效；当前有效计划见 [`docs/REQ-singleplayer.md`](REQ-singleplayer.md) 与
+> [`docs/DESIGN-singleplayer.md`](DESIGN-singleplayer.md)，实际交付见上方 v1.6.0 小节。
 
 口号：两个人，同一盘棋。服务端用同一份引擎重算，客户端只是手柄。
 
@@ -30,7 +65,7 @@
   `RoomClientTest` 2 / `MatchRefereeTest` 2 / `BoardViewModelTest` 4；M0 体检 `HeadlessGameTest` 4）
 - `service/HeadlessGame` + `HeadlessGameTest`：整局对局在零 JavaFX 环境下跑完，并用字节码扫描
   钉死「`javafx` 只许出现在 `ui` 包」这条红线
-- 协议表、启动方式、代码地图与已知限制见 [`docs/NETWORK.md`](NETWORK.md)
+- 协议表、启动方式、代码地图与已知限制原见 `docs/NETWORK.md`（该文档已随联机移除一并删除）
 - 未做：断线重连、超时判负 / 逃跑判胜（M4）、账号与 ELO（M5，可砍）
 
 ## v1.5.0（双主题版）

@@ -81,6 +81,8 @@ public final class SaveService {
             out.append("{\"id\":").append(quote(m.getId()));
             out.append(",\"damageTaken\":").append(m.getDamageTaken());
             out.append(",\"shield\":").append(quote(Boolean.toString(m.hasDivineShield())));
+            out.append(",\"sickness\":").append(quote(Boolean.toString(m.isSummoningSickness())));
+            out.append(",\"attacksUsed\":").append(m.getAttacksUsed());
             out.append("}");
         }
         out.append("],\"pets\":");
@@ -108,8 +110,35 @@ public final class SaveService {
         writeIds(out, state.getDeck().viewFromTop());
     }
 
+    /**
+     * 引号化一个字符串值。转义集与读取端（{@code MiniJson.parseString}）对称：
+     * 双引号/反斜杠/换行/回车/制表/退格/换页 各走专用转义，其余 C0 控制字符走
+     * unicode 转义（反斜杠 u 加 4 位十六进制）。
+     *
+     * <p>说明：本写入端当前只用于引号化 ASCII 卡牌 id 与布尔字符串（玩家名不入存档），
+     * 控制字符**当前不可达**；补齐转义属防御性统一，保证与读取端口径闭环。
+     */
     private static String quote(String value) {
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        StringBuilder sb = new StringBuilder("\"");
+        for (char ch : value.toCharArray()) {
+            switch (ch) {
+                case '"' -> sb.append("\\\"");
+                case '\\' -> sb.append("\\\\");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                case '\b' -> sb.append("\\b");
+                case '\f' -> sb.append("\\f");
+                default -> {
+                    if (ch < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) ch));
+                    } else {
+                        sb.append(ch);
+                    }
+                }
+            }
+        }
+        return sb.append('"').toString();
     }
 
     // ============ 读取 ============
@@ -150,6 +179,16 @@ public final class SaveService {
                     && !bool(field, "shield")
                     && minion.hasDivineShield()) {
                 minion.consumeDivineShield();
+            }
+            // 召唤失调：老存档无该字段默认「可攻击」（修掉读档当回合全瘫）
+            if (field.contains("sickness")) {
+                minion.setSummoningSickness(bool(field, "sickness"));
+            } else {
+                minion.setSummoningSickness(false);
+            }
+            // 已出手次数：老存档无该字段默认 0（本回合未出手）
+            if (field.contains("attacksUsed")) {
+                minion.setAttacksUsed((int) field.get("attacksUsed").asNumber().value());
             }
             state.getField().add(minion);
         }

@@ -25,6 +25,15 @@ public class GameEventBus {
         anyListeners.add(listener);
     }
 
+    /** 测试用：当前订阅者总数（typed + any）。 */
+    public int subscriberCount() {
+        int n = anyListeners.size();
+        for (var list : listeners.values()) {
+            n += list.size();
+        }
+        return n;
+    }
+
     public void publish(GameEvent event) {
         for (Consumer<GameEvent> listener : anyListeners) {
             safeAccept(listener, event);

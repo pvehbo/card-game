@@ -118,10 +118,29 @@ class ReplayTest {
 
     @Test
     void specialCharactersRoundTrip() {
-        GameEvent event = GameEvent.of(GameEvent.Type.BURN, "烧掉：\"火球\" \\ 路径\n换行");
-        GameEvent.JsonData parsed = GameEvent.fromJson(event.toJson());
-        assertEquals(event.message(), parsed.message());
+        String message = "退格\b换页\f引号\"反斜杠\\换行\n制表\t回车\r";
+        GameEvent event = GameEvent.of(GameEvent.Type.BURN, message);
+        String json = event.toJson();
+
+        // 写入端必须产出合法 JSON：控制字符一律转义，不得出现裸控制字符
+        for (int i = 0; i < json.length(); i++) {
+            assertTrue(json.charAt(i) >= 0x20, "JSON 里不得出现裸控制字符（位置 " + i + "）");
+        }
+        assertTrue(json.contains("\\b"), "退格应转义为 \\b");
+        assertTrue(json.contains("\\f"), "换页应转义为 \\f");
+
+        GameEvent.JsonData parsed = GameEvent.fromJson(json);
+        assertEquals(message, parsed.message());
         assertEquals(GameEvent.Type.BURN, parsed.type());
+    }
+
+    /** R-10：读取端要认 \\b \\f \\uXXXX（与写入端转义集对称）。 */
+    @Test
+    void readerDecodesControlEscapes() {
+        String json = GameEvent.of(GameEvent.Type.BURN, "x").toJson()
+                .replace("\"message\":\"x\"", "\"message\":\"A\\bB\\fC\\u0008D\"");
+        GameEvent.JsonData parsed = GameEvent.fromJson(json);
+        assertEquals("A\bB\fC\bD", parsed.message());
     }
 
     /** M1：v2 新增的协议字段必须能带上并原样解回。 */

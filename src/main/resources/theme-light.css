@@ -396,3 +396,47 @@
     -fx-background-radius: 6;
     -fx-padding: 1 8 1 8;
 }
+
+/* ============================================================
+   随从内圈 / 成就 toast / 中央横幅（R-07：亮色高对比配色）
+   ============================================================ */
+.minion-inner-own { -fx-fill: #dcefd6; -fx-stroke: #3f7a52; }
+.minion-inner-foe { -fx-fill: #f0dce4; -fx-stroke: #a85a7a; }
+
+.toast {
+    -fx-text-fill: #8a6a1a;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(255, 252, 240, 0.9), 8, 0.6, 0, 2);
+    -fx-background-color: rgba(255, 252, 240, 0.94);
+    -fx-background-radius: 8;
+    -fx-padding: 4 14 4 14;
+}
+
+.banner-gold {
+    -fx-text-fill: #8a6a1a;
+    -fx-font-size: 46px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(138, 106, 26, 0.55), 26, 0.6, 0, 0);
+}
+
+.banner-ai {
+    -fx-text-fill: #a85a2a;
+    -fx-font-size: 46px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(168, 90, 42, 0.55), 26, 0.6, 0, 0);
+}
+
+.banner-win {
+    -fx-text-fill: #8a6a1a;
+    -fx-font-size: 46px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(138, 106, 26, 0.55), 26, 0.6, 0, 0);
+}
+
+.banner-lose {
+    -fx-text-fill: #b03030;
+    -fx-font-size: 46px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(176, 48, 48, 0.55), 26, 0.6, 0, 0);
+}
