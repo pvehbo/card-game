@@ -13,72 +13,44 @@ import org.example.card.model.Card;
 import org.junit.jupiter.api.Test;
 
 /**
- * 联机接线（M3c）：界面靠 localSeat 区分「你」和「对手」。
- *
- * <p>影子对局的座位顺序必须与服务端一致（发牌按座位顺序），所以坐在 1 号位的客户端，
- * 会话里的 {@code ai} 槽才是自己——这份用例把这条映射钉住，防止以后又按座位 0 硬编码。
+ * 战场 ViewModel 契约：{@code me()/foe()} 指向会话的两个槽位，
+ * 可玩判断与抽牌动画标记都落在「我的手牌」上。
  */
 class BoardViewModelTest {
 
-    private static GameSession versus() {
-        return GameSession.newVersus(new Random(7),
-                CardDatabase.standardDeck(), CardDatabase.standardDeck(), "甲", "乙");
+    private static GameSession pve() {
+        return GameSession.newPveBattle(new Random(7), CardDatabase.standardDeck());
     }
 
     @Test
-    void defaultSeatKeepsSinglePlayerSemantics() {
-        GameSession session = versus();
+    void meAndFoeMapToSessionSlots() {
+        GameSession session = pve();
         BoardViewModel vm = new BoardViewModel();
         vm.attach(session, new GameEngine(new SimpleAi()));
 
-        assertEquals(0, vm.localSeat());
-        assertSame(session.getPlayer(), vm.me());
-        assertSame(session.getAi(), vm.foe());
+        assertSame(session.getPlayer(), vm.me(), "me() 是会话里的玩家槽");
+        assertSame(session.getAi(), vm.foe(), "foe() 是会话里的对手槽");
     }
 
     @Test
-    void seatOneSeesTheSecondSeatAsMe() {
-        GameSession session = versus();
-        BoardViewModel vm = new BoardViewModel();
-        vm.setLocalSeat(1);
-        vm.attach(session, new GameEngine(new SimpleAi()));
-
-        assertEquals(1, vm.localSeat());
-        assertSame(session.getAi(), vm.me());
-        assertSame(session.getPlayer(), vm.foe());
-    }
-
-    @Test
-    void unknownSeatFallsBackToZero() {
-        GameSession session = versus();
-        BoardViewModel vm = new BoardViewModel();
-        vm.setLocalSeat(7);
-        vm.attach(session, new GameEngine(new SimpleAi()));
-
-        assertEquals(0, vm.localSeat());
-        assertSame(session.getPlayer(), vm.me());
-    }
-
-    @Test
-    void playableFollowsTheLocalSeatHand() {
-        GameSession session = versus();
+    void playableFollowsMyHand() {
+        GameSession session = pve();
         GameEngine engine = new GameEngine(new SimpleAi());
         BoardViewModel vm = new BoardViewModel();
-        vm.setLocalSeat(1);
         vm.attach(session, engine);
 
         Card mine = vm.me().getHand().get(0);
-        // 同一条判断必须落在「我的手牌」上，而不是会话里的座位 0
+        // 同一条判断必须落在「我的手牌」上
         assertEquals(engine.canPlay(vm.me(), mine), vm.isPlayable(mine));
         int handSize = vm.me().getHand().size();
-        vm.pruneDrawn();    // 内部走 me()：坐在 1 号位时不该去查座位 0 的手牌
+        vm.pruneDrawn();    // 内部走 me()，不该去查别人的手牌
         assertEquals(handSize, vm.me().getHand().size());
     }
 
     /** R-03：同一引擎重复 attach（进出回放）不得让监听器线性增长。 */
     @Test
     void sameEngineAttachDoesNotResubscribe() {
-        GameSession session = versus();
+        GameSession session = pve();
         GameEngine engine = new GameEngine(new SimpleAi());
         BoardViewModel vm = new BoardViewModel();
         vm.attach(session, engine);
@@ -93,7 +65,7 @@ class BoardViewModelTest {
     /** R-03：换新引擎时对新总线订阅一次（DRAW + any 共 2 个）。 */
     @Test
     void newEngineAttachSubscribesTwice() {
-        GameSession session = versus();
+        GameSession session = pve();
         GameEngine engine = new GameEngine(new SimpleAi());
         BoardViewModel vm = new BoardViewModel();
         vm.attach(session, engine);

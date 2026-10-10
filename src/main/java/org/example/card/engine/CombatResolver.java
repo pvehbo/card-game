@@ -68,35 +68,40 @@ public final class CombatResolver {
             events.add(GameEvent.damage(foe, dmg, msg));
         } else {
             int defAtk = effectiveAttack(foe, target);
-            String msg = attacker.getName() + "(" + atk + ") 与 "
-                    + target.getName() + "(" + defAtk + ") 互撞";
+            // 与打脸分支同口径（R-17）：负攻按 0 结算，显示值与结算值同源
+            int atkDmg = Math.max(0, atk);
+            int defDmg = Math.max(0, defAtk);
+            String msg = attacker.getName() + "(" + atkDmg + ") 与 "
+                    + target.getName() + "(" + defDmg + ") 互撞";
             logs.add(msg);
-            events.add(GameEvent.attack(self, foe, attacker, target, atk, msg));
-            // 目标受伤：圣盾先挡（挡下则无伤害事件、无剧毒）
-            if (target.consumeDivineShield()) {
+            events.add(GameEvent.attack(self, foe, attacker, target, atkDmg, msg));
+            // 目标受伤：**有伤害**才由圣盾先挡（0 伤害不破盾；挡下则无伤害事件、无剧毒）
+            if (atkDmg > 0 && target.consumeDivineShield()) {
                 logs.add(target.getName() + " 的圣盾抵挡了伤害");
             } else {
-                target.takeDamage(atk);
+                target.takeDamage(atkDmg);
                 // 随从受伤：带上受害者随从，界面才能把飘字/粒子锚在随从身上
-                events.add(GameEvent.damage(foe, target, atk, msg));
-                if (attacker.hasKeyword(Keyword.POISONOUS) && atk > 0) {
+                events.add(GameEvent.damage(foe, target, atkDmg, msg));
+                if (attacker.hasKeyword(Keyword.POISONOUS) && atkDmg > 0) {
                     target.takeDamage(currentHealth(foe, target));
                     logs.add(attacker.getName() + " 的剧毒发作");
                 }
             }
             // 反击：攻击者的圣盾同理
-            if (attacker.consumeDivineShield()) {
+            if (defDmg > 0 && attacker.consumeDivineShield()) {
                 logs.add(attacker.getName() + " 的圣盾抵挡了伤害");
             } else {
-                attacker.takeDamage(defAtk);
-                events.add(GameEvent.damage(self, attacker, defAtk, msg));
-                if (target.hasKeyword(Keyword.POISONOUS) && defAtk > 0) {
+                attacker.takeDamage(defDmg);
+                events.add(GameEvent.damage(self, attacker, defDmg, msg));
+                if (target.hasKeyword(Keyword.POISONOUS) && defDmg > 0) {
                     attacker.takeDamage(currentHealth(self, attacker));
                     logs.add(target.getName() + " 的剧毒发作");
                 }
             }
             if (removeDead(foe, target, events, logs)) {
-                fireDeathTriggers(self, foe, target, events, logs);
+                // 阵亡的是 foe 的随从：亡语上下文必须以「随从的主人」当 self，
+                // 否则亡语会打错英雄（打到主人自己身上）。
+                fireDeathTriggers(foe, self, target, events, logs);
             }
             if (currentHealth(self, attacker) <= 0
                     && removeDead(self, attacker, events, logs)) {
@@ -129,11 +134,15 @@ public final class CombatResolver {
         return false;
     }
 
-    /** 亡语派发：紧跟阵亡事件，触发消息同步记日志。 */
-    private static void fireDeathTriggers(PlayerState self, PlayerState foe, MinionCard dead,
+    /**
+     * 亡语派发：紧跟阵亡事件，触发消息同步记日志。
+     * {@code owner} = 阵亡随从的主人，{@code opponent} = 其对手；上下文按 (owner, opponent) 构造，
+     * 于是触发器里 {@code ctx.foe()} 才是「敌方英雄」——两个阵亡点都必须按这个语义传参。
+     */
+    private static void fireDeathTriggers(PlayerState owner, PlayerState opponent, MinionCard dead,
                                           List<GameEvent> events, List<String> logs) {
         for (GameEvent e : TriggerSystem.fire(TriggerSystem.TriggerPoint.ON_DEATH,
-                new GameContext(self, foe, null, dead))) {
+                new GameContext(owner, opponent, null, dead))) {
             logs.add(e.message());
             events.add(e);
         }

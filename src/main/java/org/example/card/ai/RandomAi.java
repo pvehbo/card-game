@@ -65,14 +65,17 @@ public final class RandomAi implements AiStrategy {
 
     @Override
     public Optional<MinionCard> chooseAttackTarget(GameView view, List<Target> legalTargets) {
-        if (legalTargets.isEmpty()) {
+        // 打脸只有在「对方没有嘲讽」时才是合法选项：有嘲讽时引擎给的 legalTargets 只含嘲讽，
+        // 这时若返回 empty（打脸）会被引擎判非法，这一次出手就被白白浪费掉。
+        boolean faceLegal = view.foeMinions().stream()
+                .noneMatch(GameView.MinionInfo::taunt);
+        int options = legalTargets.size() + (faceLegal ? 1 : 0);
+        if (options == 0) {
             return Optional.empty();
         }
-        // 末位表示打脸（与直接返回 empty 等价，显式一点方便读）
-        int pick = random.nextInt(legalTargets.size() + 1);
-        if (pick == legalTargets.size()) {
-            return Optional.empty();
-        }
-        return Optional.of(legalTargets.get(pick).card());
+        int pick = random.nextInt(options);
+        return pick < legalTargets.size()
+                ? Optional.of(legalTargets.get(pick).card())
+                : Optional.empty();
     }
 }

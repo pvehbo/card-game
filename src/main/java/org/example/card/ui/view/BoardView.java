@@ -1,5 +1,6 @@
 package org.example.card.ui.view;
 
+import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
@@ -42,6 +43,15 @@ public final class BoardView {
     private final Label pileLabel;
     private HeroView aiHero;
     private HeroView playerHero;
+    /**
+     * 随从控件的「最后已知屏幕包围盒」。
+     *
+     * <p>为什么要记：一次结算会在**状态已改完**之后才逐个发布事件，所以当 DEATH / DAMAGE
+     * 事件到达时，阵亡随从早已不在 {@code field} 里，视图刷新也把它的控件丢掉了——
+     * 击杀瞬间的飘字与死亡粒子会因为「找不到控件」而整体丢失。
+     * 每次刷新前先记一份，事件处理器就能拿到落点。
+     */
+    private final java.util.Map<MinionCard, Bounds> lastMinionBounds = new java.util.IdentityHashMap<>();
 
     public BoardView(BoardViewModel vm, Handlers handlers,
                      HBox aiField, HBox playerField, HBox handBox,
@@ -64,6 +74,8 @@ public final class BoardView {
         if (vm.session() == null) {
             return;
         }
+        // 必须在重建之前记：此刻旧控件还挂在场景上，坐标才有效
+        rememberMinionBounds();
         refreshAiZone();
         refreshPlayerZone();
         refreshHand();
@@ -167,6 +179,35 @@ public final class BoardView {
             }
         }
         return null;
+    }
+
+    /**
+     * 随从控件的屏幕包围盒：控件还在场上就用实时位置；已经不在场上
+     * （典型场景：它刚刚阵亡，视图刷新已把控件丢掉）则回退到最后已知位置，
+     * 让击杀瞬间的飘字 / 死亡粒子仍有落点。从未见过该随从时返回 {@code null}。
+     */
+    public Bounds minionBounds(MinionCard minion) {
+        if (minion == null) {
+            return null;
+        }
+        Node node = findMinionNode(minion);
+        if (node != null) {
+            return node.localToScene(node.getBoundsInLocal());
+        }
+        return lastMinionBounds.get(minion);
+    }
+
+    private void rememberMinionBounds() {
+        rememberMinionBounds(aiField);
+        rememberMinionBounds(playerField);
+    }
+
+    private void rememberMinionBounds(HBox zone) {
+        for (Node n : zone.getChildren()) {
+            if (n instanceof MinionView mv && mv.getMinion() != null) {
+                lastMinionBounds.put(mv.getMinion(), n.localToScene(n.getBoundsInLocal()));
+            }
+        }
     }
 
     /** 取得某一方英雄的头像控件（null 安全）。 */

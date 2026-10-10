@@ -23,11 +23,6 @@ public final class BoardViewModel {
 
     private GameSession session;
     private GameEngine engine;
-    /**
-     * 我在会话里的座位：单机恒为 0；联机时是服务端给我的座位号，
-     * 因为客户端的影子棋局必须与服务端同序（发牌按座位顺序），我可能坐在 1 号位。
-     */
-    private int localSeat;
     private MinionCard selectedAttacker;
     /** 本回合新抽到的牌：等控件建好后补一段“抽牌入场”动画。 */
     private final Set<Card> pendingDrawAnim = new HashSet<>();
@@ -61,29 +56,14 @@ public final class BoardViewModel {
         return session;
     }
 
-    /** 设置我在会话里的座位（联机开局时调用；单机不用管，默认 0）。 */
-    public void setLocalSeat(int seat) {
-        this.localSeat = seat == 1 ? 1 : 0;
-    }
-
-    public int localSeat() {
-        return localSeat;
-    }
-
     /** 我这边的玩家状态（界面里的「你」）。 */
     public PlayerState me() {
-        if (session == null) {
-            return null;
-        }
-        return localSeat == 1 ? session.getAi() : session.getPlayer();
+        return session == null ? null : session.getPlayer();
     }
 
     /** 对面那一边的玩家状态。 */
     public PlayerState foe() {
-        if (session == null) {
-            return null;
-        }
-        return localSeat == 1 ? session.getPlayer() : session.getAi();
+        return session == null ? null : session.getAi();
     }
 
     /** 界面刷新通知：订阅一次，之后每次 touch() 自动刷新。 */

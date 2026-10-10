@@ -26,8 +26,12 @@ public interface AiStrategy {
     Optional<PetCard> choosePet(List<Card> hand);
 
     /**
-     * 在合法目标里选一个攻击目标（返回选中随从的 MinionCard）；legalTargets 为空代表打脸（返回 empty）。
+     * 在合法目标里选一个攻击目标（返回选中随从的 MinionCard）；返回 empty 表示打脸。
      * 目标血量已由调用方算好放进 {@link Target}，AI 不必接触 PlayerState。
+     *
+     * <p><b>契约</b>：只有「对方没有嘲讽」时才允许返回 empty（打脸）。有嘲讽时
+     * {@code legalTargets} 只含嘲讽随从，必须从中选一个——返回 empty 会被引擎判为非法动作，
+     * 这一次出手就白白浪费了。
      */
     Optional<MinionCard> chooseAttackTarget(GameView view, List<Target> legalTargets);
 }

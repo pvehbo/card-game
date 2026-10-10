@@ -14,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * v2.0 M0「引擎可嵌入化体检」：整局对局必须能在没有任何 JavaFX 初始化的情况下跑完，
- * 且引擎/服务侧字节码里不许出现 JavaFX 引用（联机服务端要的结果）。
+ * 架构红线：整局对局必须能在没有任何 JavaFX 初始化的情况下跑完，
+ * 且引擎/服务侧字节码里不许出现 JavaFX 引用（界面之外的引擎必须保持干净）。
  */
 class HeadlessGameTest {
 
@@ -40,7 +40,7 @@ class HeadlessGameTest {
     void sameSeedProducesSameOutcome() {
         String first = HeadlessGame.run(42L, 20, org.example.card.ai.AiLevel.HARD).summary();
         String second = HeadlessGame.run(42L, 20, org.example.card.ai.AiLevel.HARD).summary();
-        assertEquals(first, second, "同种子必须完全可复现（联机仲裁依赖这条）");
+        assertEquals(first, second, "同种子必须完全可复现（回放与天梯基准依赖这条）");
     }
 
     @Test

@@ -739,6 +739,11 @@ java -Dui.autoplay=10 -cp "target/classes:$(cat target/cp.txt)" org.example.card
 > 用例数高于本表预估的 135~150：QA 在独立验证阶段新增**对抗性回归套件**
 > `src/test/java/org/example/card/qa/AdversarialVerificationTest.java`（18 例，逐条证伪 R-01 / R-02 / R-03 / R-05 / R-10
 > 与 SoundEngine 的修复边界），超出原估的「新增 8~12 条回归用例」。按「目标为收缩下界，非硬性红线」的口径，属**质量增强**而非功能膨胀。
+>
+> **二轮复查后（发布前加固）**：`src/main` **61**（+1 `effect/KeywordTriggers`，补齐战吼/亡语内置触发器）、
+> `src/test` **31**（+1 `event/GameEventBusTest`）、`@Test` **173**（0 失败）、`ui/CardGameApp.java` **1438** 行；
+> 同时删掉生产死代码 `GameSession.newVersus` / `Mode.PVP` / `BoardViewModel.localSeat`。
+> 详见 `docs/CHANGELOG.md` 的 v1.6.0「二轮复查修复」小节。
 
 ### 8.4 亮色主题对比度（R-07）
 ```bash

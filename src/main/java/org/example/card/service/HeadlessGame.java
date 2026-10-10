@@ -11,12 +11,12 @@ import org.example.card.engine.GameSession;
 import org.example.card.engine.TurnController;
 
 /**
- * 无界面（headless）对局驱动器 —— v2.0 M0「引擎可嵌入化体检」。
+ * 无界面（headless）对局驱动器。
  *
  * <p>本类只依赖 {@code engine}/{@code ai}/{@code event}/{@code model}，<b>不引用任何 JavaFX 类型</b>，
- * 因此可以在无图形环境（服务器、CI）里完整跑完一局。v2.0 的房间服务端要复用的正是这条路径：
- * 会话（{@link GameSession}）+ 结算（{@link GameEngine}）+ 回合编排（{@link TurnController}），
- * 界面只是众多订阅方之一。
+ * 因此可以在无图形环境（服务器、CI）里完整跑完一局：会话（{@link GameSession}）+
+ * 结算（{@link GameEngine}）+ 回合编排（{@link TurnController}），界面只是众多订阅方之一。
+ * 自动对局冒烟（{@code -Dui.autoplay}）与天梯基准都走这条路径。
  *
  * <p>与 {@code ui.AiTurnDirector} 的区别：后者逐动作演出（有延时、要动画），本类一口气跑完，
  * 只产出可断言的结果与事件计数。

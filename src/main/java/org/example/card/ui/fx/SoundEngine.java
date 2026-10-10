@@ -13,6 +13,8 @@ import java.util.Deque;
 import java.util.EnumMap;
 import java.util.Map;
 
+import org.example.card.service.GameLog;
+
 /**
  * 程序化音效引擎：用代码合成波形，不依赖任何音频文件。
  *
@@ -39,23 +41,48 @@ public final class SoundEngine {
      */
     private static final Object POOL_LOCK = new Object();
     private static boolean enabled = true;
+    /** 池已关闭（退出期）：关闭后不再发布新合成的池，否则退出瞬间合成的那批 Clip 永远没人关。 */
+    private static volatile boolean closed;
+    /** 全部音效合成失败（通常是没有可用音频设备）：把「音效开着却没声」变成可诊断的状态。 */
+    private static volatile boolean degraded;
 
     private SoundEngine() {
     }
 
-    /** 初始化：在后台线程预热全部音效（不阻塞界面）。失败时静默降级。 */
+    /** 初始化：在后台线程预热全部音效（不阻塞界面）。失败时静默降级，但会记日志 + 置降级标志。 */
     public static void init() {
+        init(null);
+    }
+
+    /**
+     * 带回调的初始化：预热全部结束后回调一次（**在预热线程上**）。
+     * 界面可据此把「音效不可用」这类降级状态显示出来（自己记得切回 UI 线程）。
+     */
+    public static void init(Runnable onWarmupFinished) {
+        closed = false;
+        degraded = false;
         Thread warmer = new Thread(() -> {
+            int failed = 0;
             for (Sfx sfx : Sfx.values()) {
-                try {
-                    ensurePool(sfx);
-                } catch (Exception ex) {
-                    System.err.println("[音效] " + sfx + " 合成失败：" + ex);
+                if (!ensurePool(sfx)) {
+                    failed++;
                 }
+            }
+            if (failed == Sfx.values().length) {
+                degraded = true;
+                GameLog.warn("音效合成全部失败（通常是没有可用音频设备），已静默降级；游戏与界面不受影响。");
+            }
+            if (onWarmupFinished != null) {
+                onWarmupFinished.run();
             }
         }, "sound-warmer");
         warmer.setDaemon(true);
         warmer.start();
+    }
+
+    /** 是否已静默降级（无可用音频设备）。界面可据此把「音效开」的假象说清楚。 */
+    public static boolean isDegraded() {
+        return degraded;
     }
 
     /**
@@ -67,10 +94,13 @@ public final class SoundEngine {
      * {@link #close()} 死等该锁、进程无法退出（已用 jstack 复现）。
      * 并发合成用「锁内 {@code putIfAbsent} + 关掉多余的那份」兜底：既不会互相覆盖，也不泄漏 Clip。
      */
-    private static void ensurePool(Sfx sfx) {
+    private static boolean ensurePool(Sfx sfx) {
         synchronized (POOL_LOCK) {
             if (POOL.containsKey(sfx)) {
-                return;
+                return true;
+            }
+            if (closed) {
+                return false;
             }
         }
         Deque<Clip> clips = new ArrayDeque<>();
@@ -81,34 +111,40 @@ public final class SoundEngine {
             }
         } catch (Exception ex) {
             // 单个音效失败不影响其他音效
-            return;
+            return false;
         }
         synchronized (POOL_LOCK) {
+            if (closed) {
+                // 合成期间池已被关闭（窗口退出）：这份不能再发布，否则这批 Clip 永远没人关
+                closeClips(clips);
+                return false;
+            }
             if (POOL.putIfAbsent(sfx, clips) != null) {
                 // 别的线程抢先放好了：关掉我们这份，避免孤立 Clip
-                for (Clip clip : clips) {
-                    try {
-                        clip.close();
-                    } catch (Exception ignored) {
-                        // 忽略关闭异常
-                    }
-                }
+                closeClips(clips);
+            }
+        }
+        return true;
+    }
+
+    /** 关闭一组 Clip（各自吞异常，单个失败不影响其它）。 */
+    private static void closeClips(Deque<Clip> clips) {
+        for (Clip clip : clips) {
+            try {
+                clip.stop();
+                clip.close();
+            } catch (Exception ignored) {
+                // 单个 Clip 关闭失败不影响其它
             }
         }
     }
 
-    /** 释放全部 Clip（幂等）。窗口退出或测试收尾调用。 */
+    /** 释放全部 Clip 并标记池已关闭（幂等）。窗口退出或测试收尾调用。 */
     public static void close() {
         synchronized (POOL_LOCK) {
+            closed = true;
             for (Deque<Clip> clips : POOL.values()) {
-                for (Clip clip : clips) {
-                    try {
-                        clip.stop();
-                        clip.close();
-                    } catch (Exception ignored) {
-                        // 单个 Clip 关闭失败不影响其它
-                    }
-                }
+                closeClips(clips);
             }
             POOL.clear();
         }

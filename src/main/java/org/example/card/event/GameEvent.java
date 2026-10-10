@@ -8,8 +8,8 @@ import org.example.card.model.PlayerState;
  * 游戏事件：引擎在关键节点发出，UI 订阅后做动效与刷新。
  * 用 record 保证不可变，字段按事件类型取舍使用。
  *
- * <p>M1 起 JSON 升到 {@link #EVENT_SCHEMA} = 2：只新增两个可选协议字段（seq/turn），
- * v1 正文照旧可解析，联机广播与本地回放共用同一套编解码。
+ * <p>JSON 版本 {@link #EVENT_SCHEMA} = 2：只新增两个可选字段（seq/turn），
+ * v1 正文照旧可解析；存档、回放与事件流共用同一套编解码。
  */
 public record GameEvent(
         Type type,
@@ -63,7 +63,7 @@ public record GameEvent(
 
     /**
      * 烧牌（手牌满时抽到的那张直接进墓地）。
-     * 带 owner/card 是 M2 联机需要：对手那张牌是暗信息，广播时要按座位抹掉牌面。
+     * 带上 owner/card：界面要能指出是哪张牌被烧掉，才能播对应的动画与文案。
      */
     public static GameEvent burn(PlayerState owner, Card card, String message) {
         return new GameEvent(Type.BURN, owner, null, card, null, null, 0, message);
@@ -111,29 +111,29 @@ public record GameEvent(
         return new GameEvent(Type.GAME_OVER, winner, null, null, null, null, 0, message);
     }
 
-    // ============ 版本化 JSON（S9 存档/回放 → M1 联机广播共用） ============
+    // ============ 版本化 JSON（存档 / 回放共用） ============
 
     /**
      * 解析后的事件数据（实体引用还原为名字/id，数值与消息完整保留）。
      *
-     * <p>{@code seq}/{@code turn} 是 M1 的协议字段：v1 正文里没有，解析时补 0，
-     * 所以旧存档、旧客户端事件流不需要任何迁移。
+     * <p>{@code seq}/{@code turn} 是后加的字段：v1 正文里没有，解析时补 0，
+     * 所以旧存档与旧事件流不需要任何迁移。
      */
     public record JsonData(Type type, String actor, String target, String cardId,
                            String attacker, String defender, int amount,
                            String message, int schemaVersion, int seq, int turn) {
     }
 
-    /** 本地存档/回放：不带协议顺序号（seq/turn 记 0），其余与 {@link #toJson(int, int)} 完全一致。 */
+    /** 不带顺序号的序列化（seq/turn 记 0），其余与 {@link #toJson(int, int)} 完全一致。 */
     public String toJson() {
         return toJson(0, 0);
     }
 
     /**
-     * v2 协议序列化（字段固定顺序，缺失写 null）。
+     * 带顺序号的序列化（字段固定顺序，缺失写 null）。
      * actor/target 取玩家名，card 取卡 id，attacker/defender 取随从名。
      *
-     * @param seq  服务端广播序号（从 1 递增）；客户端重连时靠它判断漏没漏事件
+     * @param seq  事件序号（从 1 递增），用于按序重放
      * @param turn 事件发生时的引擎回合号
      */
     public String toJson(int seq, int turn) {

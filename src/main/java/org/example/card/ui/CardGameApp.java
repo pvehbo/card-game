@@ -10,6 +10,7 @@ import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -35,7 +36,6 @@ import org.example.card.engine.GameSession;
 import org.example.card.engine.TurnController;
 import org.example.card.event.GameEvent;
 import org.example.card.model.Card;
-import org.example.card.model.Deck;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
@@ -124,6 +124,12 @@ public class CardGameApp extends Application {
     private HBox replayBar;
     private Button replayPlayButton;
     private GameSession stashedSession;
+    /**
+     * 回放的数据源（R-14）：可能是实况 recorder，也可能是从文件读回来的那份。
+     * **独立字段**——绝不用它替换 {@link #recorder}，否则退出回放后实况录制会写进回放那份，
+     * 污染后续回放与 {@code saveToFile}。
+     */
+    private ReplayRecorder replaySource;
 
     /** 战绩读盘：文件不存在/损坏时从零计数（绝不炸启动）。 */
     private void loadStats() {
@@ -141,6 +147,10 @@ public class CardGameApp extends Application {
         }
     }
     private String soundLabel() {
+        if (SoundEngine.isDegraded()) {
+            // 无可用音频设备：按钮必须说实话，不能显示「音效：开」却一声不响（R-16）
+            return I18n.get("sound.unavailable");
+        }
         return I18n.get(SoundEngine.isEnabled() ? "sound.on" : "sound.off");
     }
 
@@ -394,7 +404,8 @@ public class CardGameApp extends Application {
 
         // 启动粒子系统 + 预合成音效（失败自动降级，不影响游戏）
         particleLayer.start();
-        SoundEngine.init();
+        // 预热结束后刷新按钮文案：没有音频设备时要显示「音效：不可用」，不能假装开着（R-16）
+        SoundEngine.init(() -> Platform.runLater(() -> soundButton.setText(soundLabel())));
 
         // 诊断/宣传用：-Dui.screenshot=<路径> 时自动构造演示局面、截图并退出
         // 若同时给了 -Dui.autoplay=N，则改由自动对局在打满 N 回合后再截图
@@ -596,13 +607,22 @@ public class CardGameApp extends Application {
             Node anchor = e.defender() != null
                     ? boardView.findMinionNode(e.defender())
                     : boardView.heroPortrait(e.target());
-            floatDamage(anchor, "-" + e.amount(), false);
-            Fx.hitFlash(anchor);
+            // 击杀的那一击：受害随从已被移出战场、控件也被刷新掉了，
+            // 用视图层记下的「最后已知位置」兜底，否则最后一击的飘字与火花会整体丢失
+            Bounds fallback = anchor == null && e.defender() != null
+                    ? boardView.minionBounds(e.defender())
+                    : null;
+            if (anchor != null) {
+                floatDamage(anchor, "-" + e.amount(), false);
+                Fx.hitFlash(anchor);
+            } else if (fallback != null) {
+                floatDamageAt(fallback, "-" + e.amount(), false);
+            }
             SoundEngine.play(Sfx.DAMAGE);
 
-            if (anchor != null && particleLayer != null) {
-                var b = anchor.localToScene(anchor.getBoundsInLocal());
-                particleLayer.burst(b.getMinX() + b.getWidth() / 2, b.getMinY() + b.getHeight() / 2,
+            Bounds hit = anchor != null ? anchor.localToScene(anchor.getBoundsInLocal()) : fallback;
+            if (hit != null && particleLayer != null) {
+                particleLayer.burst(hit.getMinX() + hit.getWidth() / 2, hit.getMinY() + hit.getHeight() / 2,
                         Color.web("#ff8855"), 22);
             }
             // 英雄挨打才震屏（随从互撞的小抖动交给攻击动画）
@@ -618,9 +638,9 @@ public class CardGameApp extends Application {
                 turnKills++;
                 maxKills = Math.max(maxKills, turnKills);
             }
-            Node node = boardView.findMinionNode(e.card() instanceof MinionCard m ? m : null);
-            if (node != null && particleLayer != null) {
-                var b = node.localToScene(node.getBoundsInLocal());
+            // 阵亡随从此刻已不在 field 里、控件也已被刷新掉，同样靠最后已知位置拿落点
+            Bounds b = boardView.minionBounds(e.card() instanceof MinionCard m ? m : null);
+            if (b != null && particleLayer != null) {
                 particleLayer.dissipate(b.getMinX() + b.getWidth() / 2, b.getMinY() + b.getHeight() / 2,
                         Color.web("#9a7bff"), 26);
             }
@@ -1002,18 +1022,24 @@ public class CardGameApp extends Application {
             log("回放请在你的回合、AI 演完后进入。");
             return;
         }
-        if (recorder.turns() == 0) {
-            recorder = ReplayRecorder.loadFromFile(LAST_REPLAY_FILE);
-            engine.eventBus().onAny(e -> recorder.recordEvent(e));
-            if (recorder.turns() == 0) {
-                log("暂无可回放对局（打完一局会自动记录）。");
-                return;
+        // 回放源与实况 recorder 分离（R-14）：只读一份数据、绝不改动实况录制器；
+        // 也不再往事件总线上多挂监听器——回放期间引擎根本不发布事件，挂了只会重复记账。
+        if (replaySource == null) {
+            if (recorder.turns() > 0) {
+                replaySource = recorder;
+            } else {
+                replaySource = ReplayRecorder.loadFromFile(LAST_REPLAY_FILE);
+                if (replaySource.turns() == 0) {
+                    log("暂无可回放对局（打完一局会自动记录）。");
+                    replaySource = null;
+                    return;
+                }
+                log("正在回放上次对局。");
             }
-            log("正在回放上次对局。");
         }
         stashedSession = session;
         replaying = true;
-        replayIndex = recorder.turns() - 1;
+        replayIndex = replaySource.turns() - 1;
         director.clear();
         endTurnButton.setDisable(true);
         replayBar.setVisible(true);
@@ -1026,15 +1052,15 @@ public class CardGameApp extends Application {
         if (!replaying) {
             return;
         }
-        replayIndex = Math.max(0, Math.min(index, recorder.turns() - 1));
-        session = recorder.snapshot(replayIndex);
+        replayIndex = Math.max(0, Math.min(index, replaySource.turns() - 1));
+        session = replaySource.snapshot(replayIndex);
         session.setYourTurn(false);
         player = session.getPlayer();
         ai = session.getAi();
         vm.attach(session, engine);
         boardView.reset();
         refresh();
-        statusLabel.setText("回放 " + (replayIndex + 1) + "/" + recorder.turns());
+        statusLabel.setText("回放 " + (replayIndex + 1) + "/" + replaySource.turns());
     }
 
     private void stepReplay(int delta) {
@@ -1072,7 +1098,7 @@ public class CardGameApp extends Application {
             if (!replaying || !replayPlaying) {
                 return;
             }
-            if (replayIndex >= recorder.turns() - 1) {
+            if (replayIndex >= replaySource.turns() - 1) {
                 setReplayPlaying(false);
                 return;
             }
@@ -1089,6 +1115,8 @@ public class CardGameApp extends Application {
         }
         setReplayPlaying(false);
         replaying = false;
+        // 回放源用完即弃：实况 recorder 全程没被替换过，录制链路原样接回（R-14）
+        replaySource = null;
         replayBar.setVisible(false);
         replayBar.setManaged(false);
         if (stashedSession != null) {
@@ -1108,6 +1136,7 @@ public class CardGameApp extends Application {
     private void stopReplayUi() {
         setReplayPlaying(false);
         replaying = false;
+        replaySource = null;
         stashedSession = null;
         if (replayBar != null) {
             replayBar.setVisible(false);
@@ -1269,6 +1298,20 @@ public class CardGameApp extends Application {
         if (anchor == null || anchor.getScene() == null) {
             return;
         }
+        floatDamageAt(anchor.localToScene(anchor.getBoundsInLocal()), text, heal);
+    }
+
+    /**
+     * 按屏幕包围盒飘字。
+     *
+     * <p>为什么要单独有这个入口：一次结算的事件是在**状态改完之后**才逐个发布的，
+     * 所以「击杀的那一击」到达时，受害随从的控件早已被刷新掉，按控件锚定会整体丢失。
+     * 视图层记着它的最后位置，这里直接吃包围盒。
+     */
+    private void floatDamageAt(Bounds bounds, String text, boolean heal) {
+        if (bounds == null || !(boardView.sceneRootNode() instanceof StackPane rootStack)) {
+            return;
+        }
         Label label = new Label(text);
         label.getStyleClass().add(heal ? "heal-float" : "damage-float");
         label.setMouseTransparent(true);
@@ -1276,11 +1319,8 @@ public class CardGameApp extends Application {
         Pane overlay = new Pane(label);
         overlay.setMouseTransparent(true);
         overlay.setPickOnBounds(false);
-
-        StackPane rootStack = (StackPane) anchor.getScene().getRoot();
         rootStack.getChildren().add(overlay);
 
-        var bounds = anchor.localToScene(anchor.getBoundsInLocal());
         label.setLayoutX(bounds.getMinX() + bounds.getWidth() / 2 - 12);
         label.setLayoutY(bounds.getMinY());
 

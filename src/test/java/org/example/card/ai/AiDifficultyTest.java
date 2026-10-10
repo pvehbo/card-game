@@ -126,4 +126,43 @@ class AiDifficultyTest {
         engine.setAiStrategy(new HardAi());
         assertTrue(engine.chooseAiTarget(self, foe).isEmpty());
     }
+
+    /**
+     * R-15：对方有嘲讽时，随机 AI **不能**返回 empty（打脸）。
+     * 有嘲讽时引擎给的候选只含嘲讽，返回 empty 会被判非法、白白浪费这一次出手。
+     */
+    @Test
+    void randomAiNeverPicksFaceWhenTauntPresent() {
+        PlayerState self = playerOf("AI");
+        PlayerState foe = playerOf("你");
+        MinionCard wall = minion("城墙", 0, 5, Keyword.TAUNT);
+        foe.getField().add(wall);
+        foe.getField().add(minion("杂兵", 2, 2));
+        GameView view = view(self, foe);
+        List<Target> legal = List.of(new Target(wall, CombatResolver.currentHealth(foe, wall)));
+
+        RandomAi ai = new RandomAi(new Random(3));
+        for (int i = 0; i < 300; i++) {
+            assertEquals(wall, ai.chooseAttackTarget(view, legal).orElseThrow(),
+                    "有嘲讽时必须选嘲讽，不能返回打脸");
+        }
+    }
+
+    /** R-15 引擎级：有嘲讽时简单 AI 的出手必须真的打出去（不因选了非法目标而作废）。 */
+    @Test
+    void easyAiDoesNotWasteAttackWithTaunt() {
+        GameEngine engine = new GameEngine(new RandomAi(new Random(11)));
+        PlayerState self = playerOf("AI");
+        PlayerState foe = playerOf("你");
+        MinionCard attacker = minion("打手", 3, 3);
+        attacker.setSummoningSickness(false);
+        self.getField().add(attacker);
+        foe.getField().add(minion("城墙", 0, 99, Keyword.TAUNT));
+
+        for (int i = 0; i < 20; i++) {
+            attacker.resetAttacks();
+            assertTrue(engine.aiStrike(self, foe, attacker, new ArrayList<String>()::add),
+                    "有嘲讽时出手必须成功");
+        }
+    }
 }

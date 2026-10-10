@@ -2,6 +2,7 @@ package org.example.card.engine;
 
 import org.example.card.ai.SimpleAi;
 import org.example.card.effect.GameContext;
+import org.example.card.effect.KeywordTriggers;
 import org.example.card.effect.Trigger;
 import org.example.card.effect.TriggerSystem;
 import org.example.card.event.GameEvent;
@@ -9,6 +10,7 @@ import org.example.card.model.Card;
 import org.example.card.model.Deck;
 import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;
+import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -149,17 +151,147 @@ class KeywordMechanicsTest {
     }
 
     @Test
-    void keywordsWithoutMechanicsChangeNothing() {
-        // 战吼/亡语随从在无注册触发器时与白板一致（管线直通）
+    void noKeywordMinionUnaffected() {
+        // 没带战吼/亡语的随从不受内置触发器影响（注册表里挂着也只是零开销直通）
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(List.of(minion("垫", 1, 1)));
+        MinionCard plain = minion("白板", 2, 2);
+        self.getHand().add(plain);
+        List<GameEvent.Type> types = new ArrayList<>();
+        engine.eventBus().onAny(e -> types.add(e.type()));
+
+        assertTrue(engine.playMinion(self, plain, new ArrayList<String>()::add));
+
+        assertEquals(1, self.getDeck().size(), "白板不上场抽牌");
+        assertFalse(types.contains(GameEvent.Type.DRAW));
+        assertTrue(plain.isSummoningSickness(), "无冲锋仍有召唤失调");
+    }
+
+    // ============ R-12：战吼 / 亡语 从占位关键词变成真机制 ============
+
+    @Test
+    void battlecryDrawsACard() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(List.of(minion("垫", 1, 1)));
+        MinionCard herald = minion("传令官", 2, 2, Keyword.BATTLECRY);
+        self.getHand().add(herald);
+        List<GameEvent.Type> types = new ArrayList<>();
+        engine.eventBus().onAny(e -> types.add(e.type()));
+
+        assertTrue(engine.playMinion(self, herald, new ArrayList<String>()::add));
+
+        assertEquals(1, self.getHand().size(), "战吼抽 1 张进手牌");
+        assertEquals(0, self.getDeck().size());
+        assertTrue(types.contains(GameEvent.Type.DRAW), "战吼走统一抽牌管线，发 DRAW 事件");
+    }
+
+    @Test
+    void battlecryOnEmptyDeckIsSilent() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        MinionCard herald = minion("传令官", 2, 2, Keyword.BATTLECRY);
+        self.getHand().add(herald);
+        List<GameEvent.Type> types = new ArrayList<>();
+        engine.eventBus().onAny(e -> types.add(e.type()));
+
+        assertTrue(engine.playMinion(self, herald, new ArrayList<String>()::add));
+
+        assertTrue(self.getHand().isEmpty(), "空牌堆抽不到牌");
+        assertFalse(types.contains(GameEvent.Type.DRAW), "空牌堆不抽牌也不报错");
+    }
+
+    /**
+     * 亡语归属（R-12 关键回归）：敌方随从阵亡时，亡语必须打**随从主人的对手**，
+     * 而不是打到主人自己身上——即上下文里的 (self, foe) 必须按「阵亡随从的归属」构造。
+     */
+    @Test
+    void deathrattleOfFoeMinionHitsOwnerOpponent() {
         GameEngine engine = new GameEngine(new SimpleAi());
         PlayerState self = playerOf(new ArrayList<>());
         PlayerState foe = playerOf(new ArrayList<>());
-        MinionCard plain = minion("白板", 2, 2, Keyword.BATTLECRY, Keyword.DEATHRATTLE);
-        self.getHand().add(plain);
-        List<String> logs = new ArrayList<>();
+        MinionCard attacker = minion("攻", 5, 5);
+        attacker.setSummoningSickness(false);
+        self.getField().add(attacker);
+        MinionCard plagued = minion("瘟疫", 1, 1, Keyword.DEATHRATTLE);
+        foe.getField().add(plagued);
 
-        assertTrue(engine.playMinion(self, plain, logs::add));
-        assertTrue(plain.isSummoningSickness(), "无冲锋仍有召唤失调");
+        engine.attack(self, foe, attacker, plagued, new ArrayList<String>()::add);
+
+        assertEquals(PlayerState.START_LIFE, foe.getLifePoints(), "亡语不该打到随从的主人自己");
+        assertEquals(PlayerState.START_LIFE - KeywordTriggers.DEATHRATTLE_DAMAGE,
+                self.getLifePoints(), "亡语打的是主人的对手");
+    }
+
+    /** 己方亡语随从阵亡时，打的是敌方英雄。 */
+    @Test
+    void deathrattleOfOwnMinionHitsFoeHero() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard plagued = minion("我的瘟疫", 1, 1, Keyword.DEATHRATTLE);
+        plagued.setSummoningSickness(false);
+        self.getField().add(plagued);
+        MinionCard wall = minion("大块头", 9, 9);
+        foe.getField().add(wall);
+
+        engine.attack(self, foe, plagued, wall, new ArrayList<String>()::add);
+
+        assertTrue(self.getField().isEmpty(), "1/1 撞 9/9 必死");
+        assertEquals(PlayerState.START_LIFE - KeywordTriggers.DEATHRATTLE_DAMAGE,
+                foe.getLifePoints(), "亡语打敌方英雄");
+        assertEquals(PlayerState.START_LIFE, self.getLifePoints(), "不该打到自己");
+    }
+
+    /** 亡语造成的伤害可以终结对局（GAME_OVER 由引擎在阵亡触发之后判定）。 */
+    @Test
+    void deathrattleCanFinishTheGame() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        foe.damage(PlayerState.START_LIFE - KeywordTriggers.DEATHRATTLE_DAMAGE);
+        MinionCard plagued = minion("我的瘟疫", 1, 1, Keyword.DEATHRATTLE);
+        plagued.setSummoningSickness(false);
+        self.getField().add(plagued);
+        MinionCard wall = minion("大块头", 9, 9);
+        foe.getField().add(wall);
+        List<GameEvent.Type> types = new ArrayList<>();
+        engine.eventBus().onAny(e -> types.add(e.type()));
+
+        engine.attack(self, foe, plagued, wall, new ArrayList<String>()::add);
+
+        assertTrue(foe.isDefeated());
+        assertTrue(types.contains(GameEvent.Type.GAME_OVER), "亡语斩杀要出 GAME_OVER");
+    }
+
+    /** reset() 只清额外注册的探针，内置战吼/亡语必须仍在册。 */
+    @Test
+    void resetKeepsBuiltInTriggers() {
+        TriggerSystem.reset();
+        assertTrue(TriggerSystem.registered() >= 2, "reset 不该清掉内置关键词触发器");
+    }
+
+    /**
+     * R-17：互撞分支与打脸同口径——负攻按 0 结算，且 **0 伤害不该击破圣盾**。
+     * （修前 {@code consumeDivineShield()} 无条件调用，0/负伤也会把盾打掉。）
+     */
+    @Test
+    void zeroDamageCollisionDoesNotBreakDivineShield() {
+        GameEngine engine = new GameEngine(new SimpleAi());
+        PlayerState self = playerOf(new ArrayList<>());
+        PlayerState foe = playerOf(new ArrayList<>());
+        MinionCard weak = minion("虚弱", 1, 5);
+        weak.setSummoningSickness(false);
+        self.getField().add(weak);
+        MinionCard shielded = minion("银甲", 2, 3, Keyword.DIVINE_SHIELD);
+        foe.getField().add(shielded);
+        // 己方负攻光环：effectiveAttack(weak) = 1 - 3 = -2 → 按 0 结算
+        self.getPets().add(new PetCard("t-debuff", "衰弱图腾", "全员-3 攻", -3, 0, 0));
+
+        engine.attack(self, foe, weak, shielded, new ArrayList<String>()::add);
+
+        assertTrue(shielded.hasDivineShield(), "0 伤害不该击破圣盾");
+        assertEquals(0, shielded.getDamageTaken(), "0 伤害不该留下伤");
+        assertEquals(2, weak.getDamageTaken(), "反击照常结算");
     }
 
     /**
