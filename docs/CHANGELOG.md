@@ -109,7 +109,7 @@
 
 ### 美术资源包（V0 / V1 / V2）
 - 30 张卡图（512×716）+ 玩家/AI 头像（256×256）+ 亮暗双背景（1920×1080），逐张 `sips` 核验尺寸
-- 规格冻结在 [`docs/ASSETS-v1.5.md`](ASSETS-v1.5.md)；`AssetsCoverageTest` 逐卡 id 锁定资源存在性
+- 规格曾冻结在 `docs/ASSETS-v1.5.md`（该盘点表已随历史计划文档清理）；`AssetsCoverageTest` 逐卡 id 锁定资源存在性
 - 查找链与命名规范见 `resources/images/README.md`：**替换即生效，删除即回退**
 
 ### 平衡：后手补偿
@@ -182,7 +182,7 @@
 
 ### 发布
 - CI 三矩阵：Windows（已有）+ macOS/Linux（`unix-package.yml`，`mvn test` 门禁 + `autoplay=5` 冒烟）
-- 发版证据：基线截图 `docs/baseline.png` + 每步 `autoplay` 战报
+- 发版证据：基线截图 `docs/baseline.png` + 每步 `autoplay` 战报（基线取证文件已随历史计划文档清理）
 
 ### 已知限制（v1.2 做）
 - 费用体系：JSON 已占位 `cost`，校验器还是次数限

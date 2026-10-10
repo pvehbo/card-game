@@ -179,8 +179,8 @@ images/
 └── backgrounds/   战场背景（board.jpg）
 ```
 
-详细规格（尺寸、格式、命名）见 [`src/main/resources/images/README.md`](src/main/resources/images/README.md)，
-整套资源的冻结盘点表见 [`docs/ASSETS-v1.5.md`](docs/ASSETS-v1.5.md)（30 卡图 + 2 头像 + 亮暗双背景）。
+详细规格（尺寸、格式、命名）见 [`src/main/resources/images/README.md`](src/main/resources/images/README.md)。
+当前资源包为 30 张卡图（512×716）+ 2 张英雄头像（256×256）+ 亮暗双背景（1920×1080）。
 
 **主题**：界面配色走两套 CSS —— `src/main/resources/theme-dark.css`（默认）与 `theme-light.css`。
 想改配色只动 CSS 即可；亮主题期望的背景图是 `backgrounds/board-light.jpg`，没有就回退 `board.jpg`。
@@ -220,4 +220,5 @@ src/main/java/org/example/card/
     └── fx/      打击感工具箱（Fx 动画 / ParticleLayer 粒子 / SoundEngine + Sfx 音效）
 ```
 
-版本记录见 [`docs/CHANGELOG.md`](docs/CHANGELOG.md)，数值规范见 [`docs/BALANCE.md`](docs/BALANCE.md)。
+版本记录见 [`docs/CHANGELOG.md`](docs/CHANGELOG.md)，数值规范见 [`docs/BALANCE.md`](docs/BALANCE.md)，
+后续计划见 [`docs/PLAN-v1.7.md`](docs/PLAN-v1.7.md)（内容扩张版）与 [`docs/BACKLOG.md`](docs/BACKLOG.md)（能力清单）。

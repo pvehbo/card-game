@@ -4,6 +4,11 @@
 > 上游：`docs/REQ-singleplayer.md`（R-00 ~ R-11）+ 主理人裁定的 4 个待确认问题 + 已核实的缺陷清单
 > 定位：**既有项目范围收缩**，非新产品。功能面只减不增；不新增第三方依赖；不改 `pom.xml` 版本号。
 > 纪律：本文件是唯一产出，未改动任何源码 / 测试 / 其它文档。
+>
+> **文档清理说明**：本文是 v1.6.0 的**已完成**设计记录。文中提及的历史计划文档
+> （`docs/PLAN.md`、`docs/PLAN-v1.4.md`、`docs/PLAN-v1.5-v2.0.md`、`docs/PLAN-v2.0-hardening.md`、
+> `docs/ASSETS-v1.5.md`、`docs/EDITOR-EVAL.md`）**已随历史计划一并清理**，
+> 文中提及仅作历史叙述，不构成待办。当前有效文档见 `docs/BACKLOG.md` 与 `docs/PLAN-v1.7.md`。
 
 ---
 
