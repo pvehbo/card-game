@@ -6,7 +6,6 @@ import org.example.card.model.Deck;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
 import org.example.card.model.PlayerState;
-import org.example.card.model.SpellCard;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

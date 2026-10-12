@@ -23,16 +23,6 @@
     -fx-font-size: 12px;
 }
 
-.gold-text {
-    -fx-text-fill: #f0c96b;
-    -fx-font-weight: bold;
-}
-
-.danger-text {
-    -fx-text-fill: #ff6b6b;
-    -fx-font-weight: bold;
-}
-
 .error-text {
     -fx-text-fill: #ff6b6b;
     -fx-font-size: 12px;
@@ -90,11 +80,6 @@
     -fx-effect:
         dropshadow(gaussian, rgba(240, 201, 107, 0.75), 22, 0.45, 0, 0),
         dropshadow(gaussian, rgba(0, 0, 0, 0.75), 12, 0.2, 0, 5);
-}
-
-.card-selected {
-    -fx-border-color: linear-gradient(to bottom, #9ef0ff, #4fc1ff 60%, #2a7fb8);
-    -fx-effect: dropshadow(gaussian, rgba(79, 193, 255, 0.85), 24, 0.5, 0, 0);
 }
 
 .card-disabled {
@@ -252,10 +237,6 @@
     -fx-font-size: 11px;
     -fx-font-weight: bold;
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.9), 4, 0.6, 0, 1);
-}
-
-.badge-health-hurt {
-    -fx-text-fill: #ffd7d7;
 }
 
 /* ============================================================

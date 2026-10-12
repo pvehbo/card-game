@@ -2,7 +2,6 @@ package org.example.card.ai;
 
 import org.example.card.engine.CombatResolver;
 import org.example.card.engine.GameEngine;
-import org.example.card.model.Card;
 import org.example.card.model.Deck;
 import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;

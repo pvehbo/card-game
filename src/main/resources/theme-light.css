@@ -23,19 +23,6 @@
     -fx-font-size: 12px;
 }
 
-.gold-text {
-    -fx-text-fill: #8a6a1a;
-    -fx-font-size: 15px;
-    -fx-font-weight: bold;
-    -fx-effect: dropshadow(gaussian, rgba(138, 106, 26, 0.4), 14, 0.4, 0, 0);
-}
-
-.danger-text {
-    -fx-text-fill: #c0392b;
-    -fx-font-size: 15px;
-    -fx-font-weight: bold;
-}
-
 .error-text {
     -fx-text-fill: #c0392b;
     -fx-font-size: 12px;
@@ -100,12 +87,6 @@
 .card:hover {
     -fx-border-color: #a8862f;
     -fx-effect: dropshadow(gaussian, rgba(168, 134, 47, 0.8), 14, 0.5, 0, 0);
-}
-
-.card-selected {
-    -fx-border-color: #2f6db3;
-    -fx-border-width: 3;
-    -fx-effect: dropshadow(gaussian, rgba(47, 109, 179, 0.85), 16, 0.55, 0, 0);
 }
 
 .card-disabled {
@@ -238,10 +219,6 @@
     -fx-font-size: 12px;
     -fx-font-weight: bold;
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.85), 3, 0.7, 0, 1);
-}
-
-.badge-health-hurt {
-    -fx-fill: linear-gradient(to bottom, #d35450 0%, #8e2f2b 100%);
 }
 
 /* ============================================================

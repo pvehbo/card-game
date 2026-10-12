@@ -2,7 +2,6 @@ package org.example.card.event;
 
 import org.example.card.ai.SimpleAi;
 import org.example.card.engine.GameEngine;
-import org.example.card.model.Card;
 import org.example.card.model.Deck;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PlayerState;

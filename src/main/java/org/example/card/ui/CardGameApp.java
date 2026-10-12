@@ -86,7 +86,6 @@ public class CardGameApp extends Application {
     private final HBox aiField = new HBox(8);
     private final HBox playerField = new HBox(8);
     private final HBox handBox = new HBox(6);
-    private final StackPane boardStack = new StackPane();
     private Button endTurnButton;
     private final Label pileLabel = new Label();
     private ParticleLayer particleLayer;

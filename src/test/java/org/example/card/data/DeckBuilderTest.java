@@ -3,7 +3,6 @@ package org.example.card.data;
 import org.example.card.model.Card;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
