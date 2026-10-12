@@ -75,10 +75,17 @@ public class GameEngine {
         aiSpell(self, foe, log);
         aiPet(self, log);
         for (MinionCard attacker : aiReadyAttackers(self)) {
+            // 风怒 2 击：出手后重新判定是否还能出手；随从阵亡/对方倒下/被拒即止
+            boolean proceeds = true;
+            while (proceeds
+                    && !foe.isDefeated()
+                    && self.getField().contains(attacker)
+                    && ActionValidator.isReadyToAttack(attacker)) {
+                proceeds = aiStrike(self, foe, attacker, log);
+            }
             if (foe.isDefeated()) {
                 return;
             }
-            aiStrike(self, foe, attacker, log);
         }
         endAiTurn(self, foe, log);
     }

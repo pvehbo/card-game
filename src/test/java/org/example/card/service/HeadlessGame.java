@@ -62,7 +62,7 @@ public final class HeadlessGame {
      * 跑一局标准对局。
      *
      * @param seed      洗牌与先后手的随机种子（同种子完全可复现）
-     * @param maxRounds 回合上限，防止极端局无限跑
+     * @param maxRounds 整轮上限（一轮 = 双方各行动一次），防止极端局无限跑
      * @param level     双方（玩家侧也由 AI 代打）使用的难度
      * @param log       战报接收器，传 {@code msg -> {}} 表示静默
      * @param keepLog   为 true 时把战报完整留进 {@link Result#log()}
@@ -83,22 +83,37 @@ public final class HeadlessGame {
         engine.eventBus().onAny(e -> events[0]++);
 
         boolean playerFirst = random.nextBoolean();
-        turns.openGame(session, playerFirst, sink, false);
+        // 只定先后手归属，回合统一由 playTurn 起手（避免 openGame 起手 + playTurn 二次起手的双抽牌）；
+        // 后手补偿显式补上，口径与对局一致。
+        turns.openGame(session, playerFirst, sink, true);
+        engine.grantSecondMoveBonus(
+                playerFirst ? session.getAi() : session.getPlayer(), sink);
 
+        // 整轮口径：一轮 = 双方各行动一次；先手方先动。rounds 即整轮数。
         int rounds = 0;
         while (!session.gameOver() && rounds < maxRounds) {
-            if (session.isYourTurn()) {
+            if (playerFirst) {
                 engine.playTurn(session.getPlayer(), session.getAi(), sink);
                 if (session.gameOver()) {
                     break;
                 }
                 turns.closePlayerTurn(session, sink);
+                engine.playTurn(session.getAi(), session.getPlayer(), sink);
+                if (session.gameOver()) {
+                    break;
+                }
+                turns.openPlayerTurn(session, sink);
             } else {
                 engine.playTurn(session.getAi(), session.getPlayer(), sink);
                 if (session.gameOver()) {
                     break;
                 }
                 turns.openPlayerTurn(session, sink);
+                engine.playTurn(session.getPlayer(), session.getAi(), sink);
+                if (session.gameOver()) {
+                    break;
+                }
+                turns.closePlayerTurn(session, sink);
             }
             rounds++;
         }

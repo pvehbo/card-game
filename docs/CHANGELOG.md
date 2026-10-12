@@ -53,8 +53,25 @@
 - **代码卫生（P2）**：删除生产死代码 `GameSession.newVersus` / `Mode.PVP` / `BoardViewModel.localSeat`
   （联机移除后仅测试在用）、未使用的 import，以及全部「联机 / 服务端」过时注释
 
+### 规则一致性（批① · 平衡方案 v0.1 落地）
+
+按 [docs/BALANCE-PROPOSAL-v0.1.md](BALANCE-PROPOSAL-v0.1.md)（§1.3 执行缺陷清单）修掉三处
+「模拟与引擎行为不一致」的缺陷，并把方案的结算语义锁进测试：
+
+- **重复开回合（T1）**：`TurnController` 新增 `turnOpen` 守卫——同一回合重复 `openPlayerTurn`
+  忽略并记日志；`closePlayerTurn` 恒放行，读档恢复玩家回合不受影响
+- **风怒第二击丢失（T2+T3）**：`GameEngine.playTurn` 对每个随从「出手后重判可攻击」驱动
+  （`ActionValidator.isReadyToAttack` 循环），风怒随从整回合打出两击；演出导演 `AiTurnDirector`
+  按出手段数排步（风怒排 2 个出手步），中途阵亡的步由结算守卫静默吞掉
+- **模拟口径改整轮（T4+T5）**：测试底座 `HeadlessGame` 的一轮 = 双方各行动一次
+  （后手补偿显式补一次抽牌，不再双起手重复摸）；`AiLadderTest` 改整轮循环 + 显式判胜结构，
+  胜率只打印不断言
+- **平局与互撞语义锁定（T6）**：新增 `engine/RulesConsistencyTest`——互撞双归零双方下场、
+  0 伤不破圣盾、双英雄归零即终局且无胜者
+- 测试数 173 → **179**（新增 `WindfuryEngineTurnTest` / `RulesConsistencyTest`，`AiLadderTest` 改写）
+
 ### 其他
-- 交付规模（实测）：`src/main` 源文件 **61**、`src/test` 测试文件 **31**、`@Test` 用例 **173**（0 失败 / 0 错误 / 0 跳过），`ui/CardGameApp.java` **1438** 行；`pom.xml` 零改动
+- 交付规模（实测）：`src/main` 源文件 **61**、`src/test` 测试文件 **33**、`@Test` 用例 **179**（0 失败 / 0 错误 / 0 跳过），`ui/CardGameApp.java` **1438** 行；`pom.xml` 零改动
 - 用例数高于设计 §8.3 预估的 135~150：含 QA 在独立验证阶段新增的**对抗性回归套件** `qa/AdversarialVerificationTest`（18 例，逐条证伪 R-01 / R-02 / R-03 / R-05 / R-10 与 SoundEngine 的修复边界），以及二轮复查补的回归用例（战吼/亡语、事件总线账本、AI 目标契约、互撞口径），属质量增强
 
 ## v2.0.0（联机版 · M0–M3 预览）—— 已移除（未发布）
