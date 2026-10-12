@@ -71,7 +71,7 @@ public class GameEngine {
      */
     public void playTurn(PlayerState self, PlayerState foe, Consumer<String> log) {
         beginAiTurn(self, log);
-        aiSummon(self, log);
+        aiSummon(self, foe, log);
         aiSpell(self, foe, log);
         aiPet(self, log);
         for (MinionCard attacker : aiReadyAttackers(self)) {
@@ -91,12 +91,23 @@ public class GameEngine {
     }
 
     /**
-     * 后手补偿（B-后手补偿）：后手开局多抽 1 张，规则与 DRAW 一致
+     * 后手补偿（B-后手补偿，张数走 Ruleset.secondMoveBonusDraws）：每张与 DRAW 一致
      * （满 10 张烧掉、空堆无事发生），并走 DRAW/BURN 事件。
      */
     public void grantSecondMoveBonus(PlayerState secondMover, Consumer<String> log) {
-        log.accept("后手补偿：后手多抽 1 张");
-        drawPhase(secondMover, log);
+        grantSecondMoveBonus(secondMover, 1, log);
+    }
+
+    /** 可配张数版本：逐张走 drawPhase 管线；张数 0 时既不抽牌也不记日志。 */
+    public void grantSecondMoveBonus(PlayerState secondMover, int draws, Consumer<String> log) {
+        if (draws <= 0) {
+            return;
+        }
+        log.accept(draws == 1 ? "后手补偿：后手多抽 1 张"
+                : "后手补偿：后手多抽 " + draws + " 张");
+        for (int i = 0; i < draws; i++) {
+            drawPhase(secondMover, log);
+        }
     }
 
     /** AI 回合起手：回合数 +1、重置出牌次数、发布 TURN_START、抽 1 张。 */
@@ -117,8 +128,13 @@ public class GameEngine {
         eventBus.publish(GameEvent.turn(GameEvent.Type.TURN_END, self, endMsg));
     }
 
-    /** AI 上场 1 张随从。返回是否真的上了场。 */
+    /** AI 上场 1 张随从（触发器视域无敌方）。返回是否真的上了场。 */
     public boolean aiSummon(PlayerState self, Consumer<String> log) {
+        return aiSummon(self, null, log);
+    }
+
+    /** AI 上场 1 张随从（带敌方视域）。返回是否真的上了场。 */
+    public boolean aiSummon(PlayerState self, PlayerState foe, Consumer<String> log) {
         // 只在买得起的随从里选（买不起直接跳过，不占出牌次数）
         List<Card> affordable = self.getHand().stream()
                 .filter(c -> !(c instanceof MinionCard) || self.canAfford(c.getCost()))
@@ -142,7 +158,7 @@ public class GameEngine {
         String msg = "上场随从：" + minion;
         log.accept(msg);
         eventBus.publish(GameEvent.summon(self, minion, msg));
-        fireSummonTriggers(self, minion, log);
+        fireSummonTriggers(self, foe, minion, log);
         return true;
     }
 
@@ -261,8 +277,14 @@ public class GameEngine {
         return ActionValidator.canPlay(self, card);
     }
 
-    /** 玩家上场一张手牌随从。返回是否成功。 */
+    /** 玩家上场一张手牌随从（触发器视域无敌方）。返回是否成功。 */
     public boolean playMinion(PlayerState self, MinionCard minion, Consumer<String> log) {
+        return playMinion(self, null, minion, log);
+    }
+
+    /** 玩家上场一张手牌随从（带敌方视域：战吼 spec DAMAGE 可打敌英雄）。返回是否成功。 */
+    public boolean playMinion(PlayerState self, PlayerState foe, MinionCard minion,
+                              Consumer<String> log) {
         Optional<String> reason = ActionValidator.playRejectReason(self, minion);
         if (reason.isPresent()) {
             log.accept(reason.get());
@@ -279,7 +301,7 @@ public class GameEngine {
         String msg = "你上场了随从：" + minion;
         log.accept(msg);
         eventBus.publish(GameEvent.summon(self, minion, msg));
-        fireSummonTriggers(self, minion, log);
+        fireSummonTriggers(self, foe, minion, log);
         return true;
     }
 
@@ -370,11 +392,12 @@ public class GameEngine {
 
     /**
      * 战吼派发：紧跟上场事件，触发消息同步记日志。
-     * 上下文暂不带敌方（本方法签名无 foe），触发器实现里 foe 可能为 null。
+     * 上下文带敌方视域（spec DAMAGE 的战吼可打敌英雄）；老的无 foe overload 传 null。
      */
-    private void fireSummonTriggers(PlayerState self, MinionCard minion, Consumer<String> log) {
+    private void fireSummonTriggers(PlayerState self, PlayerState foe, MinionCard minion,
+                                    Consumer<String> log) {
         for (GameEvent e : TriggerSystem.fire(TriggerSystem.TriggerPoint.ON_SUMMON,
-                new GameContext(self, null, null, minion))) {
+                new GameContext(self, foe, null, minion))) {
             log.accept(e.message());
             eventBus.publish(e);
         }

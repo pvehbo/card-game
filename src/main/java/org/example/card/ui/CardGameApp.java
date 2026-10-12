@@ -683,7 +683,7 @@ public class CardGameApp extends Application {
 
         boolean acted;
         if (card instanceof MinionCard minion) {
-            acted = engine.playMinion(player, minion, this::log);
+            acted = engine.playMinion(player, ai, minion, this::log);
         } else if (card instanceof SpellCard spell) {
             acted = engine.playSpell(player, ai, spell, this::log);
         } else if (card instanceof PetCard pet) {

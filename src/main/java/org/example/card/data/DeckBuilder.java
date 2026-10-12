@@ -11,14 +11,14 @@ import org.example.card.model.Card;
 /**
  * 牌组构筑器（B-7，无 UI 纯规则，可单测）。
  *
- * 规则：30 张；同种卡最多 2 张（明星单卡按自身 copies 上限，即 1 张）；
+ * 规则：30 张；同种卡最多 2 张（明星单卡按条目 copyLimit 上限，即 1 张）；
  * id 必须出自卡库。build() 吐全新实例（受伤标记不共享）。
  */
 public final class DeckBuilder {
 
     /** 牌组张数。 */
     public static final int DECK_SIZE = 30;
-    /** 同种卡上限（不超过卡牌自身的 copies 上限）。 */
+    /** 同种卡上限（不超过卡条目 copyLimit）。 */
     public static final int MAX_COPIES = 2;
 
     private final List<Card> picks = new ArrayList<>();
@@ -51,7 +51,7 @@ public final class DeckBuilder {
         if (entry == null) {
             return 0;
         }
-        return Math.min(MAX_COPIES, entry.copies());
+        return Math.min(MAX_COPIES, entry.copyLimit());
     }
 
     /** 加入一张；超量/未知返回 false（界面据此禁用按钮或提示）。 */

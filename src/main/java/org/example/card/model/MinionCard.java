@@ -10,6 +10,9 @@ public class MinionCard extends Card {
     private final int maxHealth;
     private final int cost;
     private final java.util.List<Keyword> keywords;
+    /** 数据驱动的战吼/亡语规格（null=走关键词默认）。 */
+    private final EffectSpec battlecrySpec;
+    private final EffectSpec deathrattleSpec;
     private int damageTaken;
     /** 召唤失调：上场当回合不可攻击，己方回合结束时解除。 */
     private boolean summoningSickness = true;
@@ -30,17 +33,36 @@ public class MinionCard extends Card {
 
     public MinionCard(String id, String name, String description,
                       int attack, int maxHealth, int cost, java.util.List<Keyword> keywords) {
+        this(id, name, description, attack, maxHealth, cost, keywords, null, null);
+    }
+
+    /** 全参构造（批2数据驱动）：带战吼/亡语效果规格，null=走关键词默认效果。 */
+    public MinionCard(String id, String name, String description,
+                      int attack, int maxHealth, int cost, java.util.List<Keyword> keywords,
+                      EffectSpec battlecrySpec, EffectSpec deathrattleSpec) {
         super(id, name, description);
         this.attack = attack;
         this.maxHealth = maxHealth;
         this.cost = Math.max(0, cost);
         this.keywords = java.util.List.copyOf(keywords);
+        this.battlecrySpec = battlecrySpec;
+        this.deathrattleSpec = deathrattleSpec;
         this.shieldUp = this.keywords.contains(Keyword.DIVINE_SHIELD);
     }
 
     /** 是否具有某关键词（冲锋/嘲讽/战吼/亡语/圣盾/风怒/剧毒）。 */
     public boolean hasKeyword(Keyword keyword) {
         return keywords.contains(keyword);
+    }
+
+    /** 数据驱动的战吼规格（null=按关键词默认）。 */
+    public EffectSpec battlecrySpec() {
+        return battlecrySpec;
+    }
+
+    /** 数据驱动的亡语规格（null=按关键词默认）。 */
+    public EffectSpec deathrattleSpec() {
+        return deathrattleSpec;
     }
 
     /** 圣盾是否还立着。 */
@@ -134,7 +156,7 @@ public class MinionCard extends Card {
     @Override
     public Card copy() {
         return new MinionCard(getId(), getName(), getDescription(),
-                attack, maxHealth, cost, keywords);
+                attack, maxHealth, cost, keywords, battlecrySpec, deathrattleSpec);
     }
 
     @Override

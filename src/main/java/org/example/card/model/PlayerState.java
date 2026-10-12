@@ -14,6 +14,8 @@ public class PlayerState {
     public static final int MAX_FIELD = 7;
 
     private final String name;
+    /** 法力上限封顶（经典 10），由 Ruleset 注入。 */
+    private final int maxManaCap;
     private int lifePoints = START_LIFE;
     private final Deck deck;
     private final List<Card> hand = new ArrayList<>();
@@ -29,8 +31,15 @@ public class PlayerState {
     private int mana;
 
     public PlayerState(String name, Deck deck) {
+        this(name, deck, START_LIFE, 10);
+    }
+
+    /** 规则集参数版：开局生命 startLife、法力上限封顶 maxManaCap（GameSession 从 Ruleset 转入）。 */
+    public PlayerState(String name, Deck deck, int startLife, int maxManaCap) {
         this.name = name;
         this.deck = deck;
+        this.lifePoints = startLife;
+        this.maxManaCap = maxManaCap;
     }
 
     /** 新回合开始前调用：重置出牌次数，法力上限 +1（10 封顶）并回满。 */
@@ -38,7 +47,7 @@ public class PlayerState {
         minionPlayed = false;
         spellPlayed = false;
         petPlayed = false;
-        maxMana = Math.min(10, maxMana + 1);
+        maxMana = Math.min(maxManaCap, maxMana + 1);
         mana = maxMana;
     }
 

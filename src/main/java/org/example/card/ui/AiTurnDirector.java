@@ -66,7 +66,7 @@ public final class AiTurnDirector {
         stage.refresh();
 
         steps.add(() -> {
-            if (engine.aiSummon(ai, stage::log)) {
+            if (engine.aiSummon(ai, player, stage::log)) {
                 stage.refresh();
             }
         });

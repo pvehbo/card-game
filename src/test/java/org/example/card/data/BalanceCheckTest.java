@@ -30,6 +30,19 @@ class BalanceCheckTest {
     }
 
     @Test
+    void entryFloatLayerIsChecked() {
+        // 批②：卡条目浮层——入堆份数/构筑上限越界必报
+        CardDatabase.CardEntry badCopies = new CardDatabase.CardEntry(
+                new MinionCard("x-e1", "超标入堆", "垫", 2, 2, 1), 3, 1);
+        CardDatabase.CardEntry badLimit = new CardDatabase.CardEntry(
+                new MinionCard("x-e2", "超标构筑", "垫", 2, 2, 1), 1, 0);
+        List<String> warnings = BalanceCheck.checkEntries(List.of(badCopies, badLimit));
+        assertEquals(2, warnings.size(), warnings.toString());
+        assertTrue(warnings.get(0).contains("deckCopies=3"));
+        assertTrue(warnings.get(1).contains("copyLimit=0"));
+    }
+
+    @Test
     void zeroCostBasicsAreExempt() {
         // 0 费 6/6（祖传雷霆巨人）：免检，不告警
         Card basic = new MinionCard("m5", "雷霆巨人", "高攻终结", 6, 6, 0);

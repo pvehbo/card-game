@@ -70,9 +70,33 @@
   0 伤不破圣盾、双英雄归零即终局且无胜者
 - 测试数 173 → **179**（新增 `WindfuryEngineTurnTest` / `RulesConsistencyTest`，`AiLadderTest` 改写）
 
+### 效果数据驱动与规则集（批② · 平衡方案 v0.1 落地）
+
+按 [docs/BALANCE-PROPOSAL-v0.1.md](BALANCE-PROPOSAL-v0.1.md)（§8 S2「规则集与数据契约」）把
+「效果靠类名硬编码」升级为**按卡面声明 + 按规则集开局**的数据契约，为批③重定价 / 扩卡留好口子：
+
+- **效果 spec（数据驱动）**：卡 JSON 可为战吼/亡语声明 `spec`（`kind` 限定
+  DAMAGE / HEAL / DRAW、`amount` ≥ 1，且必须与 `BATTLECRY` / `DEATHRATTLE`
+  关键词配套，解析即校验）；新增 `model/EffectSpec` 与 `effect/SpecEffects`，
+  `TriggerSystem` 的战吼/亡语改为按 spec 出手，缺省回落内置默认（战吼抽 1 / 亡语 2 伤）；
+  `MinionCard.copy` 携带 spec，存档 / 读档 / 回放兼容
+- **伤敌战吼通路**：`GameEngine.playMinion` / `aiSummon` 新增带对手的 canonical 重载——
+  召唤触发器上下文带上对手，`DAMAGE` 战吼可对敌方英雄出手；旧签名保留为委托
+  （无对手上下文时按 spec 静默）
+- **规则集（Ruleset）**：新增 `data/Ruleset`（名称 / 英雄生命 / 法力上限 / 起手数 /
+  后手补偿张数）与 `CLASSIC` / `STANDARD` 两档（当前同值：20 血、10 法力、3 张起手、
+  后手补 1 张）；`GameSession` 新增 `newPveBattle(random, cards, ruleset)` canonical，
+  `PlayerState` 支持 `heroLife` / `maxManaCap`，`TurnController`
+  后手补偿按规则集抽 N 张；旧签名全部保留为 overload 委托，存量测试零改动
+- **双层份数**：卡片条目升 `CardEntry(template, deckCopies, copyLimit)` 两层——
+  「入堆份数」（兼容老键 `copies`）与「构筑上限」（缺省 = min(2, 入堆份数)）分离；
+  `DeckBuilder` 按构筑上限把关，`BalanceCheck` 升两层体检（任一层越 1~2 均告警）
+- 测试数 179 → **200**（新增 `RulesetTest` 4 / `RulesetSessionTest` 4 /
+  `CardDatabaseEntriesTest` 6 / `SpecTriggersTest` 6，`BalanceCheckTest` +1）
+
 ### 其他
-- 交付规模（实测）：`src/main` 源文件 **61**、`src/test` 测试文件 **33**、`@Test` 用例 **179**（0 失败 / 0 错误 / 0 跳过），`ui/CardGameApp.java` **1438** 行；`pom.xml` 零改动
-- 用例数高于设计 §8.3 预估的 135~150：含 QA 在独立验证阶段新增的**对抗性回归套件** `qa/AdversarialVerificationTest`（18 例，逐条证伪 R-01 / R-02 / R-03 / R-05 / R-10 与 SoundEngine 的修复边界），以及二轮复查补的回归用例（战吼/亡语、事件总线账本、AI 目标契约、互撞口径），属质量增强
+- 交付规模（实测）：`src/main` 源文件 **62**、`src/test` 测试文件 **39**、`@Test` 用例 **200**（0 失败 / 0 错误 / 0 跳过），`ui/CardGameApp.java` **1458** 行；`pom.xml` 零改动（批①记录的 61/33 早于清理提交把 `BalanceCheck` / `HeadlessGame` 移入测试源——彼时真实口径 59/35，随批② +3 主源、+4 测试文件得 62/39）
+- 用例数高于设计 §8.3 预估的 135~150：含 QA 在独立验证阶段新增的**对抗性回归套件** `qa/AdversarialVerificationTest`（18 例，逐条证伪 R-01 / R-02 / R-03 / R-05 / R-10 与 SoundEngine 的修复边界）、二轮复查补的回归用例（战吼/亡语、事件总线账本、AI 目标契约、互撞口径），以及批①/批②新增的规则一致性、规则集、效果 spec 与份数体检用例，属质量增强
 
 ## v2.0.0（联机版 · M0–M3 预览）—— 已移除（未发布）
 

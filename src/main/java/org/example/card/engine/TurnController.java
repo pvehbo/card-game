@@ -34,9 +34,9 @@ public final class TurnController {
         }
         if (playerFirst) {
             engine.startPlayerTurn(session.getPlayer(), session.getAi(), log);
-            engine.grantSecondMoveBonus(session.getAi(), log);
+            engine.grantSecondMoveBonus(session.getAi(), session.ruleset().secondMoveBonusDraws(), log);
         } else {
-            engine.grantSecondMoveBonus(session.getPlayer(), log);
+            engine.grantSecondMoveBonus(session.getPlayer(), session.ruleset().secondMoveBonusDraws(), log);
         }
     }
 

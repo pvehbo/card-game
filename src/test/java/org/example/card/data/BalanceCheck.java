@@ -65,4 +65,26 @@ public final class BalanceCheck {
         }
         return warnings;
     }
+
+    /** 同 DeckBuilder.MAX_COPIES：构筑侧同种卡上限。 */
+    public static final int MAX_SETTING_COPIES = 2;
+
+    /**
+     * 两层体检第二层（批2）：卡条目浮层——deckCopies/copyLimit 数值域。
+     * 数值层（上文 check(List<Card>)）查单卡身材/效果；本方法查卡表的入堆与构筑上限是否越界。
+     */
+    public static List<String> checkEntries(List<CardDatabase.CardEntry> entries) {
+        List<String> warnings = new ArrayList<>();
+        for (CardDatabase.CardEntry entry : entries) {
+            if (entry.deckCopies() < 1 || entry.deckCopies() > MAX_SETTING_COPIES) {
+                warnings.add("入堆份数异常 " + entry.template().getId()
+                        + "：deckCopies=" + entry.deckCopies());
+            }
+            if (entry.copyLimit() < 1 || entry.copyLimit() > MAX_SETTING_COPIES) {
+                warnings.add("构筑上限异常 " + entry.template().getId()
+                        + "：copyLimit=" + entry.copyLimit());
+            }
+        }
+        return warnings;
+    }
 }

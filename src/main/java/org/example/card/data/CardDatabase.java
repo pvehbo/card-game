@@ -1,6 +1,7 @@
 package org.example.card.data;
 
 import org.example.card.model.Card;
+import org.example.card.model.EffectSpec;
 import org.example.card.model.Keyword;
 import org.example.card.model.MinionCard;
 import org.example.card.model.PetCard;
@@ -29,8 +30,8 @@ public final class CardDatabase {
     private CardDatabase() {
     }
 
-    /** 卡模板 + 入堆份数（B-3：明星单卡 copies:1，普通卡默认 2）。 */
-    public record CardEntry(Card template, int copies) {
+    /** 卡模板 + 双层份数（批2数据契约）：deckCopies=标准牌堆入堆份数；copyLimit=构筑同种卡上限。 */
+    public record CardEntry(Card template, int deckCopies, int copyLimit) {
     }
 
     /**
@@ -56,13 +57,13 @@ public final class CardDatabase {
     }
 
     /**
-     * 标准牌堆：每种卡按 copies 入堆，每份都是全新实例（受伤标记不共享）。
+     * 标准牌堆：每种卡按 deckCopies 入堆，每份都是全新实例（受伤标记不共享）。
      * 老卡默认 2 份；B-3 明星单卡 1 份。
      */
     public static List<Card> standardDeck() {
         List<Card> deck = new ArrayList<>();
         for (CardEntry entry : loadEntries()) {
-            for (int i = 0; i < entry.copies(); i++) {
+            for (int i = 0; i < entry.deckCopies(); i++) {
                 deck.add(entry.template().copy());
             }
         }
@@ -77,7 +78,8 @@ public final class CardDatabase {
     /**
      * 测试入口：解析单份 JSON（sourceName 作为错误消息中的文件名）。
      * 校验：schemaVersion==1、id 唯一、数值非负、法术 kind 合法且 amount&gt;0、
-     * keywords ⊆ {@link Keyword} 枚举、copies 缺省 2 且只能是 1～2。
+     * keywords ⊆ {@link Keyword} 枚举、deckCopies/copyLimit 缺省 2 且只能是 1～2、
+     * 战吼/亡语 spec 的 kind ∈ DAMAGE/HEAL/DRAW 且需配套关键词。
      */
     public static List<Card> loadFrom(String json, String sourceName) {
         List<Card> result = new ArrayList<>();
@@ -85,6 +87,11 @@ public final class CardDatabase {
             result.add(entry.template());
         }
         return result;
+    }
+
+    /** 测试入口：与 loadFrom 同校验，但保留双层份数（deckCopies/copyLimit 与效果 spec）。 */
+    public static List<CardEntry> loadEntriesFrom(String json, String sourceName) {
+        return entriesFrom(json, sourceName, new LinkedHashMap<>());
     }
 
     private static List<CardEntry> entriesFrom(String json, String sourceName,
@@ -121,10 +128,17 @@ public final class CardDatabase {
         if (cost < 0) {
             throw new IllegalStateException(obj.atKey("cost", "cost 不能为负数：" + cost));
         }
-        int copies = obj.contains("copies") ? intField(obj, "copies") : DEFAULT_COPIES;
-        if (copies < 1 || copies > 2) {
-            throw new IllegalStateException(obj.atKey("copies",
-                    "copies 只能是 1～2：" + copies));
+        int deckCopies = obj.contains("deckCopies") ? intField(obj, "deckCopies")
+                : obj.contains("copies") ? intField(obj, "copies") : DEFAULT_COPIES;
+        if (deckCopies < 1 || deckCopies > 2) {
+            throw new IllegalStateException(obj.atKey("deckCopies",
+                    "deckCopies 只能是 1～2：" + deckCopies));
+        }
+        int copyLimit = obj.contains("copyLimit") ? intField(obj, "copyLimit")
+                : Math.min(DeckBuilder.MAX_COPIES, deckCopies);
+        if (copyLimit < 1 || copyLimit > DeckBuilder.MAX_COPIES) {
+            throw new IllegalStateException(obj.atKey("copyLimit",
+                    "copyLimit 只能是 1～" + DeckBuilder.MAX_COPIES + "：" + copyLimit));
         }
         Card card;
         if (obj.contains("kind") || obj.contains("amount")) {
@@ -134,7 +148,7 @@ public final class CardDatabase {
         } else {
             card = parseMinion(obj, id, name, text, cost, keywords);
         }
-        return new CardEntry(card, copies);
+        return new CardEntry(card, deckCopies, copyLimit);
     }
 
     private static MinionCard parseMinion(MiniJson.Obj obj, String id, String name, String text,
@@ -147,7 +161,44 @@ public final class CardDatabase {
         if (health < 0) {
             throw new IllegalStateException(obj.atKey("health", "health 不能为负数：" + health));
         }
-        return new MinionCard(id, name, text, attack, health, (int) cost, keywords);
+        EffectSpec battlecry = parseSpec(obj, "battlecry", keywords, Keyword.BATTLECRY);
+        EffectSpec deathrattle = parseSpec(obj, "deathrattle", keywords, Keyword.DEATHRATTLE);
+        return new MinionCard(id, name, text, attack, health, (int) cost, keywords,
+                battlecry, deathrattle);
+    }
+
+    /**
+     * 解析战吼/亡语效果 spec（批2数据契约）：{kind: DAMAGE/HEAL/DRAW, amount ≥ 1}，
+     * 且卡必须带配套关键词（BATTLECRY/DEATHRATTLE）；字段缺省返回 null（走关键词默认效果）。
+     */
+    private static EffectSpec parseSpec(MiniJson.Obj obj, String field,
+                                        List<Keyword> keywords, Keyword required) {
+        if (!obj.contains(field)) {
+            return null;
+        }
+        MiniJson.Obj spec = obj.get(field).asObject();
+        String kindRaw = strField(spec, "kind");
+        Keyword kind;
+        try {
+            kind = Keyword.valueOf(kindRaw);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException(spec.atKey("kind",
+                    field + " 的非法 kind=" + kindRaw + "，合法值：DAMAGE/HEAL/DRAW"));
+        }
+        if (kind != Keyword.DAMAGE && kind != Keyword.HEAL && kind != Keyword.DRAW) {
+            throw new IllegalStateException(spec.atKey("kind",
+                    field + " 的非法 kind=" + kindRaw + "，合法值：DAMAGE/HEAL/DRAW"));
+        }
+        int amount = intField(spec, "amount");
+        if (amount < 1) {
+            throw new IllegalStateException(spec.atKey("amount",
+                    field + " 的 amount 必须大于 0：" + amount));
+        }
+        if (!keywords.contains(required)) {
+            throw new IllegalStateException(obj.atKey(field,
+                    field + " 效果需要 keywords 含 " + required));
+        }
+        return new EffectSpec(kind, amount);
     }
 
     private static SpellCard parseSpell(MiniJson.Obj obj, String id, String name, String text,
