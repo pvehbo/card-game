@@ -30,6 +30,8 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.example.card.ai.AiLevel;
 import org.example.card.ai.SimpleAi;
+import org.example.card.data.Ruleset;
+import org.example.card.data.CardDatabase;
 import org.example.card.engine.ActionValidator;
 import org.example.card.engine.GameEngine;
 import org.example.card.engine.GameSession;
@@ -503,7 +505,7 @@ public class CardGameApp extends Application {
             return null;
         }
         try {
-            DeckBuilder builder = new DeckBuilder();
+            DeckBuilder builder = new DeckBuilder(Ruleset.STANDARD);
             builder.loadIds(new ArrayList<>(customDeckIds));
             Optional<String> reason = builder.validate();
             if (reason.isPresent()) {
@@ -522,11 +524,12 @@ public class CardGameApp extends Application {
         stopReplayUi();
         recorder.clear();
         List<Card> customDeck = resolveCustomDeck();
+        // 批3：新局一律走标准规则（30 张默认牌堆、重定价、牌库见底疲劳、宠物 1 槽）
         session = customDeck == null
-                ? GameSession.newPveBattle(RANDOM)
-                : GameSession.newPveBattle(RANDOM, customDeck);
+                ? GameSession.newPveBattle(RANDOM, CardDatabase.deck(Ruleset.STANDARD), Ruleset.STANDARD)
+                : GameSession.newPveBattle(RANDOM, customDeck, Ruleset.STANDARD);
         session.nextGeneration();
-        engine = new GameEngine(new SimpleAi());
+        engine = new GameEngine(new SimpleAi(), Ruleset.STANDARD);
         controller = new TurnController(engine);
         // 诊断开关：-Dai.level=easy|normal|hard 预设 AI 难度（默认普通）
         aiLevel = AiLevel.fromId(System.getProperty("ai.level"));
@@ -543,7 +546,7 @@ public class CardGameApp extends Application {
         subscribeEvents();
         engine.eventBus().onAny(e -> recorder.recordEvent(e));
         logArea.clear();
-        log("开局：你与 AI 各 3 张手牌，20 生命；法力 1 点开局、每回合 +1（10 封顶）；每回合各限 1 随从 + 1 法术 + 1 宠物。");
+        log("开局（标准模式）：你与 AI 各 3 张手牌、30 张牌库，20 生命；法力 1 点开局、每回合 +1（10 封顶）；每回合各限 1 随从 + 1 法术 + 1 宠物；牌库见底进入疲劳；后手多抽 1 张。");
         endTurnButton.setDisable(false);
         wasPlayerFirst = screenshotMode || RANDOM.nextBoolean();
         turnKills = 0;

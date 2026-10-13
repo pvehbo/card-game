@@ -23,12 +23,26 @@ public final class DeckBuilder {
 
     private final List<Card> picks = new ArrayList<>();
     private final Map<String, CardDatabase.CardEntry> library;
+    /** 本构筑器读的规则集（批3）。 */
+    private final Ruleset ruleset;
 
+    /** 经典池（旧签名保留：历史数值，标准牌堆 40 张前 30）。 */
     public DeckBuilder() {
+        this(Ruleset.CLASSIC);
+    }
+
+    /** 规则集池（批3）：标准 = 重定价候选值 + 新构筑上限（m7/m17/宠物 1 张）。 */
+    public DeckBuilder(Ruleset ruleset) {
+        this.ruleset = ruleset;
         this.library = new LinkedHashMap<>();
-        for (CardDatabase.CardEntry entry : CardDatabase.loadEntries()) {
+        for (CardDatabase.CardEntry entry : CardDatabase.entries(ruleset)) {
             library.putIfAbsent(entry.template().getId(), entry);
         }
+    }
+
+    /** 本构筑器读的规则集。 */
+    public Ruleset ruleset() {
+        return ruleset;
     }
 
     /** 卡库（按载入顺序，去重）。 */
@@ -85,10 +99,10 @@ public final class DeckBuilder {
         picks.clear();
     }
 
-    /** 一键默认：标准牌堆前 30 张（确定性子集，合法可直接开局）。 */
+    /** 一键默认：规则集默认牌堆前 30 张（经典=40 张标准牌堆前 30；标准=整副默认 30 张）。 */
     public void useStandard() {
         clear();
-        for (Card card : CardDatabase.standardDeck()) {
+        for (Card card : CardDatabase.deck(ruleset)) {
             if (picks.size() >= DECK_SIZE) {
                 break;
             }

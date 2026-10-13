@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import org.example.card.data.DeckBuilder;
+import org.example.card.data.Ruleset;
 import org.example.card.model.Card;
 
 /**
@@ -32,7 +33,7 @@ public final class DeckBuilderView {
 
     public static void show(Window owner, List<String> initialIds, Consumer<List<String>> onDone,
             String stylesheetUrl) {
-        DeckBuilder builder = new DeckBuilder();
+        DeckBuilder builder = new DeckBuilder(Ruleset.STANDARD);
         if (initialIds != null && !initialIds.isEmpty()) {
             try {
                 builder.loadIds(new ArrayList<>(initialIds));

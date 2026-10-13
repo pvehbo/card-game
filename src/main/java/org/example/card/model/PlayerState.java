@@ -21,6 +21,8 @@ public class PlayerState {
     private final List<Card> hand = new ArrayList<>();
     private final List<MinionCard> field = new ArrayList<>();
     private final List<PetCard> pets = new ArrayList<>();
+    /** 疲劳计数（批3标准规则）：牌库见底后每多要抽 1 张，本次受伤 = 第 N 次疲劳。 */
+    private int fatigue;
     private final List<Card> graveyard = new ArrayList<>();
     /** 本回合是否已打过 1 张随从 / 1 张法术 / 1 只宠物（每回合各限 1 次）。 */
     private boolean minionPlayed;
@@ -144,6 +146,16 @@ public class PlayerState {
     /** 宠物区：常驻光环，不可被攻击。 */
     public List<PetCard> getPets() {
         return pets;
+    }
+
+    /** 疲劳计数的当前值（0 = 尚未疲劳）。 */
+    public int fatigue() {
+        return fatigue;
+    }
+
+    /** 疲劳 +1 并返回本次伤害（1,2,3…；批3标准规则，牌库见底触发）。 */
+    public int increaseFatigue() {
+        return ++fatigue;
     }
 
     public List<Card> getGraveyard() {

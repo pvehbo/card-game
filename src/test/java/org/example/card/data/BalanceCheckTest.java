@@ -48,4 +48,22 @@ class BalanceCheckTest {
         Card basic = new MinionCard("m5", "雷霆巨人", "高攻终结", 6, 6, 0);
         assertTrue(BalanceCheck.check(List.of(basic)).isEmpty());
     }
+
+    @Test
+    void standardEntriesPassBalanceCheck() {
+        // 批3：标准重定价候选值（零费特权已取消）全过香草公式
+        for (CardDatabase.CardEntry entry : CardDatabase.loadStandardEntries()) {
+            assertTrue(BalanceCheck.check(java.util.List.of(entry.template())).isEmpty(),
+                    entry.template().getId() + " 标准值应零告警");
+        }
+    }
+
+    @Test
+    void foundationDecksPassBalanceCheck() {
+        // 批3：三基准构筑（提案 §6.4 A/M/D）全零告警
+        for (String key : List.of("A", "M", "D")) {
+            assertTrue(BalanceCheck.check(CardDatabase.foundationDeck(key)).isEmpty(),
+                    key + " 基准构筑应零告警");
+        }
+    }
 }

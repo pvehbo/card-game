@@ -7,6 +7,7 @@ import org.example.card.effect.DrawEffect;
 import org.example.card.effect.EffectResult;
 import org.example.card.effect.GameContext;
 import org.example.card.effect.TriggerSystem;
+import org.example.card.data.Ruleset;
 import org.example.card.model.Keyword;
 import org.example.card.event.GameEvent;
 import org.example.card.event.GameEventBus;
@@ -32,7 +33,7 @@ import java.util.function.Consumer;
  *   逐操作执行，endPlayerTurn() 收尾。
  *
  * 规则：
- * 1. DRAW：抽 1 张；手牌满 10 张则烧掉；牌堆空则无事发生；
+ * 1. DRAW：抽 1 张；手牌满 10 张则烧掉；牌堆空则无事发生（标准模式：递增疲劳伤害）；
  * 2. MAIN：限打 1 张随从（场上未满 7 格）+ 1 张法术 + 1 只宠物；
  * 3. BATTLE：无召唤失调的己方随从可攻击——打在对方随从上（双方同时受伤，
  *    血量归零者阵亡）或直击敌方英雄；
@@ -43,9 +44,22 @@ public class GameEngine {
     private AiStrategy ai;
     private final GameEventBus eventBus = new GameEventBus();
     private int turn;
+    /** 规则集（批3）：标准 = 宠物 1 槽可替换、牌库见底递增疲劳；经典 = 历史行为。 */
+    private Ruleset ruleset = Ruleset.CLASSIC;
 
     public GameEngine(AiStrategy ai) {
         this.ai = ai;
+    }
+
+    /** 规则集版（批3）：标准模式的结构规则（宠物槽/疲劳）由规则集驱动。 */
+    public GameEngine(AiStrategy ai, Ruleset ruleset) {
+        this.ai = ai;
+        this.ruleset = ruleset == null ? Ruleset.CLASSIC : ruleset;
+    }
+
+    /** 本局规则集（只读）。 */
+    public Ruleset ruleset() {
+        return ruleset;
     }
 
     /** 切换 AI 策略（一局内可换，难度选择用）。 */
@@ -200,6 +214,7 @@ public class GameEngine {
             return false;
         }
         self.getHand().remove(card);
+        settlePetSlot(self, card, log);
         self.getPets().add(card);
         self.setPetPlayed(true);
         self.spendMana(card.getCost());
@@ -346,11 +361,26 @@ public class GameEngine {
         }
         self.setPetPlayed(true);
         self.spendMana(pet.getCost());
+        settlePetSlot(self, pet, log);
         self.getPets().add(pet);
         String msg = "你召唤了宠物：" + pet + "（常驻光环）";
         log.accept(msg);
         eventBus.publish(GameEvent.pet(self, pet, msg));
         return true;
+    }
+
+    /**
+     * 宠物槽结算（批3标准规则）：宠物仅 1 槽——新宠入槽时旧宠离场（正常付费、无退费）。
+     * 经典模式无槽位约束，保持可叠加常驻光环。
+     */
+    private void settlePetSlot(PlayerState self, PetCard incoming, Consumer<String> log) {
+        if (ruleset != Ruleset.STANDARD || self.getPets().isEmpty()) {
+            return;
+        }
+        PetCard outgoing = self.getPets().remove(self.getPets().size() - 1);
+        String msg = "宠物替换：" + outgoing.getName() + " 离场，「" + incoming.getName() + "」进驻光环";
+        log.accept(msg);
+        eventBus.publish(GameEvent.pet(self, outgoing, msg));
     }
 
     /**
@@ -407,7 +437,16 @@ public class GameEngine {
         // 抽一张走统一管线（满手烧牌发 BURN、否则进手牌发 DRAW、空堆返回 null）
         GameEvent drawn = DrawEffect.drawOne(self);
         if (drawn == null) {
-            log.accept("牌堆已空，无牌可抽");
+            if (ruleset == Ruleset.STANDARD) {
+                // 标准规则（确认③④）：牌库见底递增疲劳——第 N 次疲劳受 N 点伤害
+                int damage = self.increaseFatigue();
+                self.damage(damage);
+                String msg = "疲劳：" + self.getName() + " 牌堆已空，受 " + damage + " 点疲劳伤害";
+                log.accept(msg);
+                eventBus.publish(GameEvent.damage(self, damage, msg));
+            } else {
+                log.accept("牌堆已空，无牌可抽");
+            }
             return;
         }
         log.accept(drawn.message());

@@ -48,12 +48,13 @@ public final class GameSession {
         return newPveBattle(random, playerCards, Ruleset.CLASSIC);
     }
 
-    /** 规则集版：heroLife/maxManaCap 注入 PlayerState，openingHand 决定开局发牌数。 */
+    /** 规则集版：heroLife/maxManaCap 注入 PlayerState，openingHand 决定开局发牌数；
+     *  AI 牌堆随规则集（批3）：经典=40 张标准牌堆，标准=30 张默认牌堆。 */
     public static GameSession newPveBattle(Random random, java.util.List<Card> playerCards,
                                            Ruleset ruleset) {
         PlayerState player = new PlayerState("你", new Deck(copyOf(playerCards)),
                 ruleset.heroLife(), ruleset.maxManaCap());
-        PlayerState ai = new PlayerState("AI", new Deck(copyOf(CardDatabase.standardDeck())),
+        PlayerState ai = new PlayerState("AI", new Deck(copyOf(CardDatabase.deck(ruleset))),
                 ruleset.heroLife(), ruleset.maxManaCap());
         player.getDeck().shuffle(random);
         ai.getDeck().shuffle(random);

@@ -56,18 +56,132 @@ public final class CardDatabase {
         return all;
     }
 
+    /** 标准池（批3）：读取各卡表的 standard 覆盖块，按候选表值解析标准条目。 */
+    public static List<CardEntry> loadStandardEntries() {
+        Map<String, String> idSource = new LinkedHashMap<>();
+        List<CardEntry> all = new ArrayList<>();
+        all.addAll(loadStandardFile("/cards/minions.json", idSource));
+        all.addAll(loadStandardFile("/cards/spells.json", idSource));
+        all.addAll(loadStandardFile("/cards/pets.json", idSource));
+        return all;
+    }
+
+    /** 读单份卡表的 standard 覆盖块（只收集带 standard 键的卡，id 跨文件查重）。 */
+    private static List<CardEntry> loadStandardFile(String path, Map<String, String> idSource) {
+        String fileName = path.startsWith("/") ? path.substring(1) : path;
+        MiniJson.Obj root = MiniJson.parse(readResource(path), fileName).asObject();
+        long schemaVersion = longField(root, "schemaVersion");
+        if (schemaVersion != SCHEMA_VERSION) {
+            throw new IllegalStateException(root.atKey("schemaVersion",
+                    "不支持的 schemaVersion=" + schemaVersion + "，期望 " + SCHEMA_VERSION));
+        }
+        MiniJson.Arr cards = needField(root, "cards").asArray();
+        List<CardEntry> result = new ArrayList<>();
+        for (int i = 0; i < cards.size(); i++) {
+            MiniJson.Obj cardObj = cards.get(i).asObject();
+            if (!cardObj.contains("standard")) {
+                continue;
+            }
+            CardEntry entry = parseEntry(cardObj, cardObj.get("standard").asObject());
+            String id = entry.template().getId();
+            String firstSource = idSource.putIfAbsent(id, fileName);
+            if (firstSource != null) {
+                throw new IllegalStateException(cardObj.atKey("id",
+                        "id 重复：" + id + "（首次出现于 " + firstSource + "）"));
+            }
+            result.add(entry);
+        }
+        return result;
+    }
+
     /**
-     * 标准牌堆：每种卡按 deckCopies 入堆，每份都是全新实例（受伤标记不共享）。
+     * 标准牌堆（经典口径）：每种卡按 deckCopies 入堆，每份都是全新实例（受伤标记不共享）。
      * 老卡默认 2 份；B-3 明星单卡 1 份。
      */
     public static List<Card> standardDeck() {
+        return deck(Ruleset.CLASSIC);
+    }
+
+    /** 按规则集组默认牌堆（批3）：经典 = 40 张标准牌堆；标准 = 30 张（标准 deckCopies 合计 30，零费特权已取消）。 */
+    public static List<Card> deck(Ruleset ruleset) {
         List<Card> deck = new ArrayList<>();
-        for (CardEntry entry : loadEntries()) {
+        for (CardEntry entry : entries(ruleset)) {
             for (int i = 0; i < entry.deckCopies(); i++) {
                 deck.add(entry.template().copy());
             }
         }
         return deck;
+    }
+
+    /** 按规则集取卡池（批3）：经典 = 历史数值（loadEntries）；标准 = 候选表覆盖值（loadStandardEntries）。 */
+    public static List<CardEntry> entries(Ruleset ruleset) {
+        return ruleset == Ruleset.STANDARD ? loadStandardEntries() : loadEntries();
+    }
+
+    /**
+     * 三基准构筑（提案 §6.4，批3）：key 支持 A/快攻、M/中速、D/防御。
+     * 全部用标准模板组 30 张；id 未知、同种超上限、张数不对都 fail-fast。
+     */
+    public static List<Card> foundationDeck(String key) {
+        String name = normalizeFoundation(key);
+        Map<String, Integer> composition = FOUNDATIONS.get(name);
+        if (composition == null) {
+            throw new IllegalStateException("未知基准构筑：" + key + "（可用 A/快攻、M/中速、D/防御）");
+        }
+        Map<String, Integer> pending = new LinkedHashMap<>(composition);
+        List<Card> deck = new ArrayList<>();
+        for (CardEntry entry : loadStandardEntries()) {
+            Integer count = pending.remove(entry.template().getId());
+            if (count == null) {
+                continue;
+            }
+            if (count > entry.copyLimit()) {
+                throw new IllegalStateException("基准构筑违反同种上限：" + entry.template().getId() + " ×" + count);
+            }
+            for (int i = 0; i < count; i++) {
+                deck.add(entry.template().copy());
+            }
+        }
+        if (!pending.isEmpty()) {
+            throw new IllegalStateException("基准构筑引用未知卡：" + pending.keySet());
+        }
+        if (deck.size() != DeckBuilder.DECK_SIZE) {
+            throw new IllegalStateException("基准构筑张数非法：" + name + " = " + deck.size());
+        }
+        return deck;
+    }
+
+    private static String normalizeFoundation(String key) {
+        return switch (key) {
+            case "A", "快攻" -> "A";
+            case "M", "中速" -> "M";
+            case "D", "防御" -> "D";
+            default -> key;
+        };
+    }
+
+    /** 三基准构筑面板（提案 §6.4）：id → 张数。 */
+    private static final Map<String, Map<String, Integer>> FOUNDATIONS = buildFoundations();
+
+    private static Map<String, Map<String, Integer>> buildFoundations() {
+        Map<String, Map<String, Integer>> all = new LinkedHashMap<>();
+        Map<String, Integer> a = new LinkedHashMap<>();
+        a.put("m1", 2); a.put("m6", 2); a.put("m13", 2); a.put("m3", 2); a.put("m4", 2);
+        a.put("m11", 2); a.put("m14", 2); a.put("m15", 2); a.put("m10", 2); a.put("m8", 2);
+        a.put("s1", 2); a.put("s6", 2); a.put("s3", 2); a.put("s5", 2);
+        a.put("p1", 1); a.put("p3", 1);
+        Map<String, Integer> m = new LinkedHashMap<>();
+        m.put("m1", 2); m.put("m6", 2); m.put("m2", 2); m.put("m3", 2); m.put("m4", 2);
+        m.put("m10", 2); m.put("m15", 2); m.put("m16", 2); m.put("m5", 2); m.put("m8", 1); m.put("m7", 1);
+        m.put("s1", 1); m.put("s6", 2); m.put("s3", 1); m.put("s2", 1); m.put("s5", 2);
+        m.put("p1", 1); m.put("p4", 1); m.put("p5", 1);
+        Map<String, Integer> d = new LinkedHashMap<>();
+        d.put("m2", 2); d.put("m3", 2); d.put("m9", 2); d.put("m10", 2); d.put("m12", 2);
+        d.put("m15", 2); d.put("m16", 2); d.put("m5", 2); d.put("m7", 1); d.put("m17", 1);
+        d.put("s1", 2); d.put("s2", 2); d.put("s4", 2); d.put("s5", 2); d.put("s8", 2);
+        d.put("p2", 1); d.put("p4", 1);
+        all.put("A", a); all.put("M", m); all.put("D", d);
+        return all;
     }
 
     private static List<CardEntry> loadFile(String path, Map<String, String> idSource) {
@@ -118,51 +232,83 @@ public final class CardDatabase {
         return result;
     }
 
-    /** 按字段区分卡型并解析；入堆份数缺省 2，只允许 1～2。 */
+    /** 按字段区分卡型并解析（经典数值；标准覆盖见重载）。 */
     private static CardEntry parseEntry(MiniJson.Obj obj) {
+        return parseEntry(obj, null);
+    }
+
+    /**
+     * 解析一张卡；std 为标准覆盖块（批3候选表），可空。
+     * 字段一律 std 优先：text/cost/keywords/数值/效果 spec/deckCopies/copyLimit。
+     * deckCopies：经典 1～2；标准 0～2（0 = 不进默认牌堆，但构筑仍可加）。
+     * copyLimit：标准缺省 2（m7/m17/宠物在数据里显式给 1）。
+     */
+    private static CardEntry parseEntry(MiniJson.Obj obj, MiniJson.Obj std) {
         String id = strField(obj, "id");
         String name = strField(obj, "name");
-        String text = strField(obj, "text");
-        long cost = longField(obj, "cost");
-        List<Keyword> keywords = parseKeywords(needField(obj, "keywords").asArray());
+        String text = std != null && std.contains("text") ? strField(std, "text") : strField(obj, "text");
+        long cost = std != null && std.contains("cost") ? longField(std, "cost") : longField(obj, "cost");
         if (cost < 0) {
-            throw new IllegalStateException(obj.atKey("cost", "cost 不能为负数：" + cost));
+            throw new IllegalStateException(place(std, obj, "cost").atKey("cost", "cost 不能为负数：" + cost));
         }
-        int deckCopies = obj.contains("deckCopies") ? intField(obj, "deckCopies")
+        List<Keyword> keywords = std != null && std.contains("keywords")
+                ? parseKeywords(std.get("keywords").asArray())
+                : parseKeywords(needField(obj, "keywords").asArray());
+        int deckCopies = std != null && std.contains("deckCopies") ? intField(std, "deckCopies")
+                : obj.contains("deckCopies") ? intField(obj, "deckCopies")
                 : obj.contains("copies") ? intField(obj, "copies") : DEFAULT_COPIES;
-        if (deckCopies < 1 || deckCopies > 2) {
-            throw new IllegalStateException(obj.atKey("deckCopies",
-                    "deckCopies 只能是 1～2：" + deckCopies));
+        if (deckCopies < (std == null ? 1 : 0) || deckCopies > 2) {
+            throw new IllegalStateException(place(std, obj, "deckCopies").atKey("deckCopies",
+                    (std == null ? "deckCopies 只能是 1～2：" : "标准 deckCopies 只能是 0～2：") + deckCopies));
         }
-        int copyLimit = obj.contains("copyLimit") ? intField(obj, "copyLimit")
+        int copyLimit = std != null && std.contains("copyLimit") ? intField(std, "copyLimit")
+                : std != null ? DeckBuilder.MAX_COPIES
+                : obj.contains("copyLimit") ? intField(obj, "copyLimit")
                 : Math.min(DeckBuilder.MAX_COPIES, deckCopies);
         if (copyLimit < 1 || copyLimit > DeckBuilder.MAX_COPIES) {
-            throw new IllegalStateException(obj.atKey("copyLimit",
+            throw new IllegalStateException(place(std, obj, "copyLimit").atKey("copyLimit",
                     "copyLimit 只能是 1～" + DeckBuilder.MAX_COPIES + "：" + copyLimit));
         }
         Card card;
-        if (obj.contains("kind") || obj.contains("amount")) {
-            card = parseSpell(obj, id, name, text, cost, keywords);
-        } else if (obj.contains("attackBonus") || obj.contains("healthBonus")) {
-            card = parsePet(obj, id, name, text, cost, keywords);
+        if (hasAny(std, obj, List.of("kind", "amount"))) {
+            card = parseSpell(obj, std, id, name, text, cost, keywords);
+        } else if (hasAny(std, obj, List.of("attackBonus", "healthBonus"))) {
+            card = parsePet(obj, std, id, name, text, cost, keywords);
         } else {
-            card = parseMinion(obj, id, name, text, cost, keywords);
+            card = parseMinion(obj, std, id, name, text, cost, keywords);
         }
         return new CardEntry(card, deckCopies, copyLimit);
     }
 
-    private static MinionCard parseMinion(MiniJson.Obj obj, String id, String name, String text,
-                                         long cost, List<Keyword> keywords) {
-        int attack = intField(obj, "attack");
-        int health = intField(obj, "health");
+    /** 覆盖块优先的错误定位：std 里有该键取 std，否则回落基本块。 */
+    private static MiniJson.Obj place(MiniJson.Obj std, MiniJson.Obj obj, String key) {
+        return std != null && std.contains(key) ? std : obj;
+    }
+
+    /** 任一键出现（std 优先判定，兼容无覆盖的经典块）。 */
+    private static boolean hasAny(MiniJson.Obj std, MiniJson.Obj obj, List<String> keys) {
+        for (String key : keys) {
+            if ((std != null && std.contains(key)) || obj.contains(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static MinionCard parseMinion(MiniJson.Obj obj, MiniJson.Obj std, String id, String name,
+                                          String text, long cost, List<Keyword> keywords) {
+        int attack = std != null && std.contains("attack") ? intField(std, "attack") : intField(obj, "attack");
+        int health = std != null && std.contains("health") ? intField(std, "health") : intField(obj, "health");
         if (attack < 0) {
-            throw new IllegalStateException(obj.atKey("attack", "attack 不能为负数：" + attack));
+            throw new IllegalStateException(place(std, obj, "attack").atKey("attack", "attack 不能为负数：" + attack));
         }
         if (health < 0) {
-            throw new IllegalStateException(obj.atKey("health", "health 不能为负数：" + health));
+            throw new IllegalStateException(place(std, obj, "health").atKey("health", "health 不能为负数：" + health));
         }
-        EffectSpec battlecry = parseSpec(obj, "battlecry", keywords, Keyword.BATTLECRY);
-        EffectSpec deathrattle = parseSpec(obj, "deathrattle", keywords, Keyword.DEATHRATTLE);
+        EffectSpec battlecry = parseSpec(std != null && std.contains("battlecry") ? std : obj,
+                "battlecry", keywords, Keyword.BATTLECRY);
+        EffectSpec deathrattle = parseSpec(std != null && std.contains("deathrattle") ? std : obj,
+                "deathrattle", keywords, Keyword.DEATHRATTLE);
         return new MinionCard(id, name, text, attack, health, (int) cost, keywords,
                 battlecry, deathrattle);
     }
@@ -201,35 +347,39 @@ public final class CardDatabase {
         return new EffectSpec(kind, amount);
     }
 
-    private static SpellCard parseSpell(MiniJson.Obj obj, String id, String name, String text,
-                                        long cost, List<Keyword> keywords) {
-        String kindRaw = strField(obj, "kind");
+    private static SpellCard parseSpell(MiniJson.Obj obj, MiniJson.Obj std, String id, String name,
+                                        String text, long cost, List<Keyword> keywords) {
+        MiniJson.Obj kindSrc = std != null && std.contains("kind") ? std : obj;
+        String kindRaw = strField(kindSrc, "kind");
         Keyword kind;
         try {
             kind = Keyword.valueOf(kindRaw);
         } catch (IllegalArgumentException e) {
-            throw new IllegalStateException(obj.atKey("kind",
+            throw new IllegalStateException(kindSrc.atKey("kind",
                     "非法法术 kind=" + kindRaw + "，合法值：DAMAGE/HEAL/DRAW"));
         }
-        long amount = longField(obj, "amount");
+        MiniJson.Obj amountSrc = std != null && std.contains("amount") ? std : obj;
+        long amount = longField(amountSrc, "amount");
         if (amount <= 0) {
-            throw new IllegalStateException(obj.atKey("amount",
+            throw new IllegalStateException(amountSrc.atKey("amount",
                     "法术 amount 必须大于 0：" + amount));
         }
         return new SpellCard(id, name, text, toSpellKind(kind), (int) amount, (int) cost);
     }
 
-    private static PetCard parsePet(MiniJson.Obj obj, String id, String name, String text,
-                                    long cost, List<Keyword> keywords) {
-        int attackBonus = intField(obj, "attackBonus");
-        int healthBonus = intField(obj, "healthBonus");
+    private static PetCard parsePet(MiniJson.Obj obj, MiniJson.Obj std, String id, String name,
+                                    String text, long cost, List<Keyword> keywords) {
+        int attackBonus = std != null && std.contains("attackBonus") ? intField(std, "attackBonus")
+                : intField(obj, "attackBonus");
+        int healthBonus = std != null && std.contains("healthBonus") ? intField(std, "healthBonus")
+                : intField(obj, "healthBonus");
         // B-3：允许负光环（双刃剑宠物），范围 ±5，超出视为配表笔误
         if (attackBonus < -5 || attackBonus > 5) {
-            throw new IllegalStateException(obj.atKey("attackBonus",
+            throw new IllegalStateException(place(std, obj, "attackBonus").atKey("attackBonus",
                     "attackBonus 超出范围 [-5, 5]：" + attackBonus));
         }
         if (healthBonus < -5 || healthBonus > 5) {
-            throw new IllegalStateException(obj.atKey("healthBonus",
+            throw new IllegalStateException(place(std, obj, "healthBonus").atKey("healthBonus",
                     "healthBonus 超出范围 [-5, 5]：" + healthBonus));
         }
         return new PetCard(id, name, text, attackBonus, healthBonus, (int) cost);
