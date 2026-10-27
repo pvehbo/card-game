@@ -85,8 +85,18 @@ public class GameEngine {
      */
     public void playTurn(PlayerState self, PlayerState foe, Consumer<String> log) {
         beginAiTurn(self, log);
+        // 疲劳可能在抽牌阶段直接打死自己：本回合不再出牌，也不发 TURN_END。
+        if (self.isDefeated() || foe.isDefeated()) {
+            return;
+        }
         aiSummon(self, foe, log);
+        if (self.isDefeated() || foe.isDefeated()) {
+            return;
+        }
         aiSpell(self, foe, log);
+        if (self.isDefeated() || foe.isDefeated()) {
+            return;
+        }
         aiPet(self, log);
         for (MinionCard attacker : aiReadyAttackers(self)) {
             // 风怒 2 击：出手后重新判定是否还能出手；随从阵亡/对方倒下/被拒即止
@@ -240,7 +250,7 @@ public class GameEngine {
 
     /** AI 让指定随从出手一次（自行选择目标）。返回是否真的打出了这一击。 */
     public boolean aiStrike(PlayerState self, PlayerState foe, MinionCard attacker, Consumer<String> log) {
-        return aiStrike(self, foe, attacker, chooseAiTarget(self, foe).orElse(null), log);
+        return aiStrike(self, foe, attacker, chooseAiTarget(self, foe, attacker).orElse(null), log);
     }
 
     /**
@@ -259,6 +269,11 @@ public class GameEngine {
 
     /** AI 这次会打谁：空场（Optional.empty）表示打脸。目标血量由引擎算好，AI 只做偏好选择。 */
     public Optional<MinionCard> chooseAiTarget(PlayerState self, PlayerState foe) {
+        return chooseAiTarget(self, foe, null);
+    }
+
+    /** 带出手随从的版本：策略可据此做精确交换判断；attacker 为 null 时退回旧接口。 */
+    public Optional<MinionCard> chooseAiTarget(PlayerState self, PlayerState foe, MinionCard attacker) {
         GameView view = GameView.snapshot(self, foe);
         List<Target> legalTargets = ActionValidator.legalActions(self, foe).stream()
                 .map(ActionValidator.Move::target)
@@ -266,7 +281,9 @@ public class GameEngine {
                 .distinct()
                 .map(t -> new Target(t, CombatResolver.currentHealth(foe, t)))
                 .toList();
-        return ai.chooseAttackTarget(view, legalTargets);
+        return attacker == null
+                ? ai.chooseAttackTarget(view, legalTargets)
+                : ai.chooseAttackTarget(view, attacker, legalTargets);
     }
 
     // ============ 玩家手动回合 ============

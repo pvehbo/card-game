@@ -108,4 +108,23 @@ class StandardRulesTest {
         assertEquals(Ruleset.STANDARD, new GameEngine(new RandomAi(), Ruleset.STANDARD).ruleset());
         assertEquals(Ruleset.CLASSIC, new GameEngine(new RandomAi(), null).ruleset());
     }
+
+    @Test
+    void fatigueDeathAtTurnStartStopsTheTurn() {
+        List<String> logs = new ArrayList<>();
+        PlayerState player = playerWith(new Deck(new ArrayList<>()));
+        player.damage(19);
+        PlayerState ai = new PlayerState("AI", new Deck(new ArrayList<>()), 20, 10);
+        GameEngine engine = new GameEngine(new RandomAi(), Ruleset.STANDARD);
+
+        engine.playTurn(player, ai, logs::add);
+
+        assertEquals(0, player.getLifePoints(), "疲劳 1 点应恰好打死 1 血英雄");
+        assertTrue(player.isDefeated());
+        assertTrue(logs.stream().anyMatch(l -> l.contains("疲劳")), "应有疲劳记录");
+        assertTrue(logs.stream().noneMatch(l -> l.contains("上场随从")),
+                "死于抽牌阶段后不应继续出牌");
+        assertTrue(logs.stream().noneMatch(l -> l.contains("回合结束")),
+                "死于回合中不应补发 TURN_END");
+    }
 }

@@ -34,4 +34,13 @@ public interface AiStrategy {
      * 这一次出手就白白浪费了。
      */
     Optional<MinionCard> chooseAttackTarget(GameView view, List<Target> legalTargets);
+
+    /**
+     * 带出手随从的重载：默认退回旧接口，保持既有策略/测试兼容。
+     * 新策略可据此按“这只随从”的攻击与存活做更精确的交换判断。
+     */
+    default Optional<MinionCard> chooseAttackTarget(GameView view, MinionCard attacker,
+                                                    List<Target> legalTargets) {
+        return chooseAttackTarget(view, legalTargets);
+    }
 }
